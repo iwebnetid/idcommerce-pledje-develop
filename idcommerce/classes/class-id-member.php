@@ -23,11 +23,7 @@ class ID_Member {
 		}
 	}
 
-	function match_user($user_id = null) {
-		// #devnote don't need to pass user ID
-		if (empty($user_id)) {
-			$user_id = $this->user_id;
-		}
+	function match_user($user_id) {
 		global $wpdb;
 		$sql = $wpdb->prepare('SELECT * FROM '.$wpdb->prefix.'memberdeck_members WHERE user_id=%d', $user_id);
 		$res = $wpdb->get_row($sql);
@@ -119,8 +115,7 @@ class ID_Member {
 		// need to allow for custom exp dates
 		$exp = strtotime('+1 years');
 
-		$sql = $wpdb->prepare('INSERT INTO '.$wpdb->prefix.'memberdeck_members (user_id, access_level, r_date, data) VALUES (%d, %s, %s, %s)', $user_id, serialize($membership), date('Y-m-d H:i:s'), (!empty($user['data']) ? serialize(array($user['data'])) : ''));
-		update_option('add_user_'.time().'_test', $sql);
+		$sql = $wpdb->prepare('INSERT INTO '.$wpdb->prefix.'memberdeck_members (user_id, access_level, r_date, data) VALUES (%d, %s, %s, %s)', $user_id, serialize($membership), date('Y-m-d h:i:s'), (!empty($user['data']) ? serialize(array($user['data'])) : ''));
 		$res = $wpdb->query($sql);
 		$id = $wpdb->insert_id;
 
@@ -146,10 +141,10 @@ class ID_Member {
 		}
 	}
 
-	public static function add_ipn_user($user) {
+	public static function add_paypal_user($user) {
 		global $wpdb;
 
-		$sql = $wpdb->prepare('INSERT INTO '.$wpdb->prefix.'memberdeck_members (user_id, access_level, r_date, reg_key, data) VALUES (%d, %s, %s, %s, %s)', absint($user['user_id']), serialize($user['level']), date('Y-m-d H:i:s'), $user['reg_key'], serialize(array($user['data'])));
+		$sql = $wpdb->prepare('INSERT INTO '.$wpdb->prefix.'memberdeck_members (user_id, access_level, r_date, reg_key, data) VALUES (%d, %s, %s, %s, %s)', absint($user['user_id']), serialize($user['level']), date('Y-m-d h:i:s'), $user['reg_key'], serialize(array($user['data'])));
 		$res = $wpdb->query($sql);
 		$id = $wpdb->insert_id;
 		return $sql.$id;
@@ -174,7 +169,6 @@ class ID_Member {
 			$membership = array($membership);
 		}
 		$sql = $wpdb->prepare('UPDATE '.$wpdb->prefix.'memberdeck_members SET access_level = %s, data=%s WHERE user_id = %d', serialize($membership), (!empty($user['data']) ? serialize($user['data']) : ''), $user_id);
-		update_option('update_user_'.time().'_test', $sql);
 		$res = $wpdb->query($sql);
 		$member = new ID_Member($user_id);
 		$old_membership = $member->get_membership();
@@ -233,23 +227,19 @@ class ID_Member {
 		return $res;
 	}
 
-	public static function get_user_levels($user_id = null) {
+	public static function get_user_levels() {
 		// non multisite
 		if (is_multisite()) {
 			require (ABSPATH . WPINC . '/pluggable.php');
 		}
-		if (empty($user_id)) {
-			$current_user = wp_get_current_user();
-			if (empty($current_user)) {
-				return;
-			}
-			$user_id = $current_user->ID;
-		}
-		
+		$current_user = wp_get_current_user();
 		$md_user_levels = null;
-		$md_user = ID_Member::user_levels($user_id);
-		if (!empty($md_user)) {
-			$md_user_levels = unserialize($md_user->access_level);
+		if (!empty($current_user)) {
+			$user_id = $current_user->ID;
+			$md_user = ID_Member::user_levels($user_id);
+			if (!empty($md_user)) {
+				$md_user_levels = unserialize($md_user->access_level);
+			}
 		}
 		return $md_user_levels;
 	}
@@ -378,16 +368,14 @@ class ID_Member {
 			$sql = $wpdb->prepare('SELECT * FROM '.$wpdb->prefix.'memberdeck_members WHERE user_id = %d', $user_id);
 			$res = $wpdb->get_row($sql);
 			if (isset($res->data)) {
-				$data = maybe_unserialize($res->data);
-				if (!empty($data)) {
-					foreach ($data as $item) {
-						foreach ($item as $k=>$v) {
-							if ($k == 'customer_id') {
-								$customer_id = $v;
-								break 2;
-							}
-						}	
-					}
+				$data = unserialize($res->data);
+				foreach ($data as $item) {
+					foreach ($item as $k=>$v) {
+						if ($k == 'customer_id') {
+							$customer_id = $v;
+							break 2;
+						}
+					}	
 				}
 			}
 		}
@@ -434,12 +422,12 @@ class ID_Member {
 		$url = '';
 		$filenames = array();
 		for ($i=0 ; $i < count($product_ids) ; $i++) {
-			$orders = self::get_allowed_users_new($product_ids[$i]);
-			if (!empty($orders)) {
-				foreach ($orders as $order) {
+			$members = self::get_allowed_users_new($product_ids[$i]);
+			if (!empty($members)) {
+				foreach ($members as $member) {
 					// get users and prep data
 					$user = array();
-					$user_id = $order->user_id;
+					$user_id = $member->user_id;
 	
 					// now WP data
 					$user_data = get_userdata($user_id);
@@ -461,7 +449,7 @@ class ID_Member {
 						$fname = '';
 						$lname = '';
 					}
-					foreach ($order as $k=>$v) {
+					foreach ($member as $k=>$v) {
 						if (is_string($v)) {
 							if ($k == 'level_id') {
 								$user['product_name'] = $level_array[$v]->level_name;
@@ -485,38 +473,31 @@ class ID_Member {
 					$user['zip'] = '';
 					$user['country'] = '';
 					//$user['data'] = $data;
-					$shipping_info = ID_Member_Order::get_order_meta($order->id, 'shipping_info');
-					if (!empty($shipping_info)) {
-						$user['address'] = $shipping_info['address'];
-						$user['address_two'] = $shipping_info['address_two'];
-						$user['city'] = $shipping_info['city'];
-						$user['state'] = $shipping_info['state'];
-						$user['zip'] = $shipping_info['zip'];
-						$user['country'] = $shipping_info['country'];
-					}
-					if ($crowdfunding) {
-						$id_order = mdid_idcf_order_by_orderid($order->id);
-						if (!empty($id_order)) {
-							$project_id = $id_order->product_id;
-							$project = new ID_Project($project_id);
-							$post_id = $project->get_project_postid();
-							if (!empty($post_id)) {
-								$post = get_post($post_id);
-								$user['project_title'] = $post->post_title;
+					$crm_settings = get_option('crm_settings');
+					if (!empty($crm_settings)) {
+						$shipping_info = $crm_settings['shipping_info'];
+						if (isset($shipping_info) && $shipping_info == '1') {
+							$shipping_info = get_user_meta($user_id, 'md_shipping_info', true);
+							if (is_array($shipping_info)) {
+								$user['address'] = $shipping_info['address'];
+								$user['address_two'] = $shipping_info['address_two'];
+								$user['city'] = $shipping_info['city'];
+								$user['state'] = $shipping_info['state'];
+								$user['zip'] = $shipping_info['zip'];
+								$user['country'] = $shipping_info['country'];
 							}
-							$level_id = $id_order->product_level;
-							switch ($level_id) {
-								case '1':
-									$level_title = $project->get_lvl1_name();
-									break;
-								
-								default:
-									$level_title = get_post_meta($post_id, 'ign_product_level_'.$level_id.'title', true);
-									break;
-							}
-							$user['level_title'] = $level_title;
 						}
 					}
+					/*if ($crowdfunding) {
+						$id_order = mdid_transaction_check($member->transaction_id);
+						if (!empty($id_order)) {
+							foreach ($id_order as $k=>$v) {
+								if (empty($user[$k])) {
+									$user[$k] = $v;
+								}
+							}
+						}
+					}*/
 					$user_records[] = $user;
 				}
 			}
@@ -545,7 +526,7 @@ class ID_Member {
 		if ($filenames_count > 0) {
 			// If levels/product_ids is greater than 1, then make a zip of the files created and send to download
 			if ($filenames_count > 1) {
-				$zipfilename = __('IDC Customer Export', 'memberdeck').date('Y-m-d H:i:s');
+				$zipfilename = __('IDC Customer Export', 'memberdeck').date('Y-m-d h:i:s');
 				$zipfilepath = trailingslashit($uploads['basedir']).$zipfilename;
 				$zip = new ZipArchive();
 				$zip->open($zipfilepath.'.zip', ZipArchive::CREATE);

@@ -14,7 +14,6 @@ class ID_Member_Email {
 		$headers = null
 		)
 	{
-		// #devnote we should wpautop and stripslashes message here
 		$this->to = $to;
 		$this->subject = $subject;
 		$this->message = $message;
@@ -122,7 +121,7 @@ class ID_Member_Email {
 					$this->headers .= "MIME-Version: 1.0\n";
 					$this->headers .= "Content-Type: text/html; charset=UTF-8\n";
 				}
-				$go = wp_mail($this->to, $this->subject, $this->message, $this->headers);
+				$go = mail($this->to, $this->subject, $this->message, $this->headers);
 			}
 		}
 	}

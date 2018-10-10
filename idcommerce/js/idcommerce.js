@@ -1,26 +1,17 @@
-var idcPayVars = {
-	isGuestCheckout: false,
-	redirectURL: memberdeck_durl,
-	idSet: false,
-	isFree: false,
-	trial: {
-		'trialPeriod': '',
-		'trialLength': '',
-		'trialType': ''
-	}
-};
+var idcPayVars = {};
 // payment form stuff
 var mc = memberdeck_mc;
 var epp = memberdeck_epp;
 var es = memberdeck_es;
 var ecb = memberdeck_ecb;
 var eauthnet = memberdeck_eauthnet;
+ //var   splashnet = memberdeck_splashnet;
 var eppadap = memberdeck_eppadap;
 var onlyStripe = (es === '1' && mc !== '1' && ecb !== '1' && epp !== '1' && eauthnet !== '1' && eppadap !== '1');
 var scpk;
 
 jQuery(document).ready(function() {
-	var error_class = idcCheckoutErrorClass();
+	var error_class = 'error';
 	//tooltip checkoutform 
 	jQuery('.checkout-tooltip').hover(function(){
 		if (jQuery(this).hasClass("tooltip-active")) {
@@ -59,11 +50,9 @@ jQuery(document).ready(function() {
 		jQuery('.payment-errors').hide();
 		var price;
 		if (jQuery('input[name="price"]').length > 0) {
-			// this is single product IDC_BUTTON lightbox
-			price = parseFloat(jQuery('input[name="price"]').val());
+			price = parseFloat(jQuery('.idc-button-default-price').data('level-price'));
 		}
 		else {
-			// this is standard or multiple prodcut IDC_BUTTON lightbox
 			price = parseFloat(jQuery('input[name="total"]').val());
 			var minPrice = parseFloat(jQuery('.idc_button_lightbox .level_select option:selected').data('price'));
 			if (price < minPrice) {
@@ -74,7 +63,6 @@ jQuery(document).ready(function() {
 		var action = jQuery('form[name="idc_button_checkout_form"]').attr('action');
 		action = action + '?' + 'idc_button_submit=1' + '&price=' + price;
 		// Check that inputted price is greater than or equal to level price
-		// #devnote may be redundant based on above check, we also do work in IDF
 		if (parseFloat(jQuery('.idc-button-default-price').data('level-price')) > price) {
 			jQuery('.button-error-placeholder .payment-errors').show();
 			return false;
@@ -84,7 +72,6 @@ jQuery(document).ready(function() {
 		jQuery('form[name="idc_button_checkout_form"]').attr('action', action).submit();
 	});
 	// For restoring default price, if input price is less than deafult price
-	// #devnote also redundant because it's only used for IDC lightbox single product also do work in idf
 	jQuery('input[name="price"]').change(function(e) {
 		var price = parseFloat(jQuery(this).val());
 		var default_price = parseFloat(jQuery('.idc-button-default-price').data('level-price'));
@@ -106,21 +93,21 @@ jQuery(document).ready(function() {
 	
 	// Vars and functions used only when it's a checkout form
 	if (jQuery(".checkout-wrapper").length > 0) {
-		jQuery(document).trigger('idcCheckoutLoaded');
 		var credits = jQuery("#payment-form").data('pay-by-credits');
 		var type = jQuery("#payment-form").data('type');
-		setTrialObj();
 		var limitTerm =  jQuery("#payment-form").data('limit-term');
 		var termLength = jQuery('#payment-form').data('term-length');
 		if (limitTerm) {
 			jQuery('#payment-form #pay-with-paypal').hide();
 			epp = 0;
 		}
-		var logged = idcIsLoggedIn();
+		var logged = jQuery("#payment-form #logged-input").hasClass('yes');
+		var isFree = jQuery("#payment-form").data('free');
 		var renewable = jQuery('#payment-form').data('renewable');
 		if (es == '1') {
 			var stripeSymbol = jQuery('#stripe-input').data('symbol');
 		}
+		var idset = jQuery("#payment-form #stripe-input").data('idset');
 		var customerId = jQuery('#stripe-input').data('customer-id');
 		var curSymbol = jQuery(".currency-symbol").children('sup').text();
 		if (credits === 1) {
@@ -143,26 +130,26 @@ jQuery(document).ready(function() {
 		var claim_paypal = claimPaypal();
 		var regPrice = jQuery('input[name="reg-price"]').val();
 		var pwywPrice = parseFloat(jQuery('input[name="pwyw-price"]').val());
-		var formattedPrice = jQuery(".currency-symbol .product-price").text();
+		var formattedPrice = jQuery(".product-price").text();
 		if (txnType == 'preauth') {
-			jQuery("#payment-form #pay-with-paypal").parent('div').remove();
+			jQuery("#payment-form #pay-with-paypal").remove();
 			removeCB();
 			if (idc_elw == '1' && idc_lemonway_method == '3dsecure') {
-				jQuery('#payment-form #pay-with-lemonway').parent('div').remove();
+				jQuery('#payment-form #pay-with-lemonway').remove();
 			}
 			no_methods();
 		}
 		if (type == 'recurring') {
 			var recurring = jQuery("#payment-form").data('recurring');
-			jQuery('#payment-form #pay-with-fd').parent('div').remove();
-			jQuery('#payment-form #pay-with-mc').parent('div').remove();
-			jQuery('#payment-form #pay-with-lemonway').parent('div').remove();
+			jQuery('#payment-form #pay-with-fd').remove();
+			jQuery('#payment-form #pay-with-mc').remove();
+			jQuery('#payment-form #pay-with-lemonway').remove();
 			if (parseFloat(pwywPrice) >= 1 && parseFloat(regPrice) < parseFloat(pwywPrice)) {
-				jQuery('#pay-with-stripe').parent('div').remove();
+				jQuery('#pay-with-stripe').remove();
 			}
 			no_methods();
 		}
-		if (idcPayVars.isFree == 'free') {
+		if (isFree == 'free') {
 			if (jQuery('.checkout-payment').hasClass('active')){
 				jQuery('.checkout-payment').removeClass('active');
 				jQuery('.checkout-confirmation').addClass('active');
@@ -181,116 +168,111 @@ jQuery(document).ready(function() {
 			jQuery("#payment-form #id-main-submit").attr("disabled", "disabled");
 		}
 		else {
-			// not free and only one selector
-			third_pay_selector_option();
-		}
-	}
-	jQuery(document).bind('idc_tps_option', function() {
-		third_pay_selector_option();
-	});
-	function third_pay_selector_option() {
-		jQuery('#payment-form .pay_selector').hide();
-		jQuery('#payment-form .checkout-header').hide();
-		jQuery("#id-main-submit").removeAttr("disabled");
-		if (jQuery('.checkout-payment').hasClass('active')){
-			jQuery('.checkout-payment').removeClass('active');
-			jQuery('.checkout-confirmation').addClass('active');
-		}
-		// Adding a class to .pay_selector children div, to fix an issue of selector going towards left or right in some themes
-		jQuery(".pay_selector").parent('div').addClass('single-payment-selector');
-		// Showing the terms and checkout button as there is no other payment gateway to be selected
-		if (jQuery('.idc-terms-checkbox').length > 0) {
-			jQuery('.idc-terms-checkbox').show();
-		}
-		jQuery('.main-submit-wrapper').show();
-		jQuery('.confirm-screen').show();
-		if (epp == 1 && txnType !== 'preauth') {
-			jQuery("#payment-form #id-main-submit").text(idc_localization_strings.pay_with_paypal);
-			jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentPaypal");
-			if (type == 'recurring') {
-				jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppSubForm.php');
+			jQuery('#payment-form .pay_selector').hide();
+			jQuery('#payment-form .checkout-header').hide();
+			jQuery("#id-main-submit").removeAttr("disabled");
+			if (jQuery('.checkout-payment').hasClass('active')){
+				jQuery('.checkout-payment').removeClass('active');
+				jQuery('.checkout-confirmation').addClass('active');
+			}
+			// Adding a class to .pay_selector children div, to fix an issue of selector going towards left or right in some themes
+			jQuery(".pay_selector").parent('div').addClass('single-payment-selector');
+			// Showing the terms and checkout button as there is no other payment gateway to be selected
+			if (jQuery('.idc-terms-checkbox').length > 0) {
+				jQuery('.idc-terms-checkbox').show();
+			}
+			jQuery('.main-submit-wrapper').show();
+			jQuery('.confirm-screen').show();
+			if (epp == 1 && txnType !== 'preauth') {
+				jQuery("#payment-form #id-main-submit").text(idc_localization_strings.pay_with_paypal);
+				jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentPaypal");
+				if (type == 'recurring') {
+					jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppSubForm.php');
+				}
+				else {
+					jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppForm.php');
+				}
+				//hide_registration();
+				jQuery("#payment-form #finaldescPayPal").show();
+				jQuery("#payment-form #finaldescCredits").hide();
+				jQuery("#payment-form #finaldescOffline").hide();
+				jQuery('#payment-form .reveal-account').hide();
+			}
+			else if (mc == '1' && type !== 'recurring') {
+				jQuery("#payment-form #pay-with-paypal").remove();
+				jQuery("#payment-form #id-main-submit").text(idc_localization_strings.complete_checkout);
+				jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentMC");
+				jQuery("#finaldescStripe").hide();
+				jQuery("#finaldescPayPal").hide();
+				jQuery("#finaldescCredits").hide();
+				jQuery("#finaldescOffline").show();
+
+				// var globalCurrency = jQuery("#finaldescOffline").data('currency');
+				var globalCurrencySym = jQuery("#finaldescOffline").data('currency-symbol');
+				setPriceText('mc', globalCurrencySym, formattedPrice);
+			}
+			else if (credits === 1) {
+				jQuery("#payment-form #pay-with-paypal").remove();
+				jQuery("#payment-form #id-main-submit").text(idc_localization_strings.complete_checkout);
+				jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentCredits");
+				jQuery("#payment-form #finaldescCredits").show();
+				jQuery("#payment-form #finaldescCoinbase").hide();
+				jQuery("#payment-form #finaldescOffline").hide();
+				
+				var _credits_value = jQuery("#finaldescCredits .credit-value").text();
+				jQuery('.currency-symbol').children('sup').html(creditsLabel)// +'</sup>' + _credits_value);
+				jQuery('.currency-symbol').children('.product-price').html(_credits_value);
+			}
+			else if (ecb === '1') {
+				jQuery("#payment-form #id-main-submit").text(idc_localization_strings.pay_with_coinbase);
+				jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentCoinbase");
+				jQuery("#payment-form #finaldescCoinbase").show();
+				jQuery("#payment-form #finaldescCredits").hide();
+				jQuery("#payment-form #finaldescOffline").hide();
+				jQuery("#finaldescPayPal").hide();
+
+				jQuery('.currency-symbol').children('sup').text(cbCurSymbol);
+			}
+			else if (eppadap === '1') {
+				jQuery("#payment-form #id-main-submit").text(idc_localization_strings.pay_with_paypal);
+				jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentPPAdaptive");
+				
+				//hide_registration();
+				// Loading the form and setting the payment key
+				if (type == 'recurring' || txnType == 'preauth') {
+					jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppAdaptiveSubForm.php');
+				}
+				else {
+					jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppAdaptiveForm.php');
+				}
+			
+				jQuery("#payment-form #finaldescCoinbase").hide();
+				jQuery("#payment-form #finaldescStripe").hide();
+				jQuery("#payment-form #finaldescOffline").hide();
+				jQuery("#payment-form #finaldescPayPal").show();
+				jQuery('#payment-form .reveal-account').hide();
 			}
 			else {
-				jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppForm.php');
+				jQuery("#payment-form #pay-with-paypal").remove();
+				jQuery("#payment-form #id-main-submit").text(idc_localization_strings.complete_checkout);
+				jQuery("#payment-form #finaldescStripe").show();
+				jQuery("#payment-form #finaldescCoinbase").hide();
+				jQuery("#payment-form #finaldescOffline").hide();
+				jQuery(".card-number, .card-cvc, card-expiry-month, card-expiry-year").addClass("required");
+				if (idset != '1') {
+					jQuery("#payment-form #stripe-input").show();
+					//show_registration();
+				}
+				if (jQuery('#payment-form .pay_selector').attr('id') == 'pay-with-stripe') {
+					jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentStripe");
+					jQuery('.currency-symbol').children('sup').text(stripeSymbol);
+				}
+				else if (jQuery('#payment-form .pay_selector').attr('id') == 'pay-with-fd') {
+					jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentFD");
+				}
 			}
-			idcHideRegistration();
-			jQuery("#payment-form #finaldescPayPal").show();
-			jQuery("#payment-form #finaldescCredits").hide();
-			jQuery("#payment-form #finaldescOffline").hide();
-			jQuery('#payment-form .reveal-account').hide();
+			no_methods();
 		}
-		else if (mc == '1' && type !== 'recurring') {
-			jQuery("#payment-form #pay-with-paypal").parent('div').remove();
-			jQuery("#payment-form #id-main-submit").text(idc_localization_strings.complete_checkout);
-			jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentMC");
-			jQuery("#finaldescStripe").hide();
-			jQuery("#finaldescPayPal").hide();
-			jQuery("#finaldescCredits").hide();
-			jQuery("#finaldescOffline").show();
-
-			// var globalCurrency = jQuery("#finaldescOffline").data('currency');
-			var globalCurrencySym = jQuery("#finaldescOffline").data('currency-symbol');
-			idcSetPriceText('mc', globalCurrencySym, formattedPrice);
-		}
-		else if (credits === 1) {
-			jQuery("#payment-form #pay-with-paypal").parent('div').remove();
-			jQuery("#payment-form #id-main-submit").text(idc_localization_strings.complete_checkout);
-			jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentCredits");
-			jQuery("#payment-form #finaldescCredits").show();
-			jQuery("#payment-form #finaldescCoinbase").hide();
-			jQuery("#payment-form #finaldescOffline").hide();
-			
-			var _credits_value = jQuery("#finaldescCredits .credit-value").text();
-			jQuery('.currency-symbol').children('sup').html(creditsLabel)// +'</sup>' + _credits_value);
-			jQuery('.currency-symbol').children('.product-price').html(_credits_value);
-		}
-		else if (ecb === '1') {
-			jQuery("#payment-form #id-main-submit").text(idc_localization_strings.pay_with_coinbase);
-			jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentCoinbase");
-			jQuery("#payment-form #finaldescCoinbase").show();
-			jQuery("#payment-form #finaldescCredits").hide();
-			jQuery("#payment-form #finaldescOffline").hide();
-			jQuery("#finaldescPayPal").hide();
-
-			jQuery('.currency-symbol').children('sup').text(cbCurSymbol);
-		}
-		else if (eppadap === '1') {
-			jQuery("#payment-form #id-main-submit").text(idc_localization_strings.pay_with_paypal);
-			jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentPPAdaptive");
-			
-			idcHideRegistration();
-			// Loading the form and setting the payment key
-			if (type == 'recurring' || txnType == 'preauth') {
-				jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppAdaptiveSubForm.php');
-			}
-			else {
-				jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppAdaptiveForm.php');
-			}
-		
-			jQuery("#payment-form #finaldescCoinbase").hide();
-			jQuery("#payment-form #finaldescStripe").hide();
-			jQuery("#payment-form #finaldescOffline").hide();
-			jQuery("#payment-form #finaldescPayPal").show();
-			jQuery('#payment-form .reveal-account').hide();
-		}
-		else {
-			jQuery("#payment-form #pay-with-paypal").parent('div').remove();
-			jQuery("#payment-form #id-main-submit").text(idc_localization_strings.complete_checkout);
-			jQuery("#payment-form #finaldescCoinbase").hide();
-			jQuery("#payment-form #finaldescOffline").hide();
-			jQuery(".card-number, .card-cvc, card-expiry-month, card-expiry-year").addClass("required");
-			if (!idcPayVars.idset) {
-				idcShowRegistration();
-			}
-			if (jQuery('#payment-form .pay_selector').attr('id') == 'pay-with-stripe') {
-				jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentStripe");
-				jQuery('.currency-symbol').children('sup').text(stripeSymbol);
-			}
-			else if (jQuery('#payment-form .pay_selector').attr('id') == 'pay-with-fd') {
-				jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentFD");
-			}
-		}
-		no_methods();
 	}
 	var dgFlow = '';
 
@@ -308,13 +290,12 @@ jQuery(document).ready(function() {
 		openLBGlobal(jQuery('.idc_lightbox_attach'));
 	}
 	jQuery('.pay_selector').click(function(e) {
-		e.preventDefault();
-		// trigger anytime a payment method is selected
-		jQuery(document).trigger('idcPaySelect', this);
 		if(jQuery('.checkout-payment').hasClass('active')){
 			jQuery('.checkout-payment').removeClass('active');
 			jQuery('.checkout-confirmation').addClass('active');
 		}
+		// trigger anytime a payment method is selected
+		jQuery(document).trigger('idcPaySelect');
 		// Showing the terms and checkout button
 		if (jQuery('.idc-terms-checkbox').length > 0) {
 			jQuery('.idc-terms-checkbox').show();
@@ -322,77 +303,214 @@ jQuery(document).ready(function() {
 		jQuery('.main-submit-wrapper').show();
 		jQuery('.confirm-screen').show();
 	});
-	jQuery(document).bind('idcPaySelect', function(e, selClass) {
+	// When Stripe Button is Clicked
+	jQuery("#payment-form #pay-with-stripe").click(function(e) {
 		e.preventDefault();
-		jQuery(".pay_selector").removeClass('active');
-		jQuery(selClass).addClass("active");
-		idcPaySelectActions(selClass);
-		setGuestCheckout();
-	});
-	function removeCB() {
-		jQuery("#payment-form #pay-with-coinbase").parent('div').remove();
-		jQuery('#finaldescCoinbase').remove();
-	}
-	jQuery(document).bind('idc_no_methods', function() {
-		no_methods();
-	});
-
-	function idcCheckoutError() {
-		var error = false;
-		var error_class = idcCheckoutErrorClass();
-		var errorMsg = '';
-		jQuery("#id-main-submit").attr("disabled", "disabled").addClass('processing');
-		jQuery(".payment-errors").html("");
-		jQuery('#payment-form input, #payment-form select').removeClass(error_class);
-		if (jQuery('#stripe-input').is(':visible')) {
-			error = checkCreditCard();
-		}
-		var reqFields = jQuery('#payment-form input.required:visible, #payment-form select.required:visible');
-		var reqError = false;
-		jQuery.each(reqFields, function(index, input) {
-			var val = jQuery(input).val();
-			if (val == '' || typeof(val) == 'undefined') {
-				jQuery(this).addClass(error_class);
-				error = true;
-				reqError = true;
-			}
-		});
-		if (!idcIsLoggedIn()) {
-			var formData = idcCheckoutFormData();
-			var emailError = false;
-			if (!idfValidateEmail(formData.email)) {
-				jQuery("#payment-form .email").addClass(error_class);
-				error = true;
-				emailError = true;
-			}
-			if (jQuery('.pw').is(':visible')) {
-				if (formData.pw !== formData.cpw) {
-					errorMsg = errorMsg + ' ' + idc_localization_strings.pass_dont_match + '.';
-					jQuery('.pw').addClass(error_class);
-					jQuery('.cpw').addClass(error_class);
-					error = true;
-				}
-			}
-		}
-		if (isTerms()) {			
-			if (!isTermsChecked()) {
-				var terms_message = jQuery('#idc-hdn-error-terms-privacy').val();
-				errorMsg = errorMsg + ' ' + idc_localization_strings.accept_terms + ' ' + terms_message + '.';
-				var error = true;
-			}
-		}
-		if (error) {
-			if (reqError || emailError) {
-				errorMsg = errorMsg + ' ' + idc_localization_strings.complete_all_fields + '.';
-			}
-			jQuery(".payment-errors").text(errorMsg);
-			jQuery("#id-main-submit").text(idc_localization_strings.continue);
-			jQuery("#id-main-submit").removeClass('processing').removeAttr('disabled');
+		setPriceText('stripe', stripeSymbol, formattedPrice);
+		jQuery("#id-main-submit").removeAttr("disabled");
+		if (type == 'recurring') {
+			jQuery("#ppload").unload(memberdeck_pluginsurl + '/templates/_ppSubForm.php');
 		}
 		else {
-			check_email();
+			jQuery("#ppload").unload(memberdeck_pluginsurl + '/templates/_ppForm.php');
 		}
-		return error;
+		if (!idset) {
+			jQuery("#stripe-input").show();
+			//show_registration();
+			jQuery(".card-number, .card-cvc, card-expiry-month, card-expiry-year").addClass("required");
+		}
+		jQuery("#id-main-submit").attr("name", "submitPaymentStripe");
+		jQuery("#id-main-submit").text(idc_localization_strings.complete_checkout);
+		jQuery(".pay_selector").removeClass('active');
+		jQuery(this).addClass("active");
+
+		jQuery('.finaldesc').hide();
+		jQuery("#finaldescStripe").show();
+	});
+	// When Paypal Button is Clicked
+	jQuery("#payment-form #pay-with-paypal").click(function(e) {
+		e.preventDefault();
+		setPriceText('paypal', curSymbol, formattedPrice);
+		jQuery("#id-main-submit").text(idc_localization_strings.pay_with_paypal);
+		jQuery("#id-main-submit").attr("name", "submitPaymentPaypal");
+		jQuery("#id-main-submit").removeAttr("disabled");
+		if (type == 'recurring') {
+			jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppSubForm.php');
+		}
+		else {
+			jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppForm.php');
+		}
+		
+		jQuery("#stripe-input").hide();
+		//hide_registration();
+		jQuery(".pay_selector").removeClass('active');
+		jQuery(this).addClass("active");
+
+		jQuery('.finaldesc').hide();
+		jQuery("#finaldescPayPal").show();
+        jQuery(".card-number, .card-cvc, .card-expiry-month, .card-expiry-year").removeClass("required");
+	});
+	// When First Data Button is Clicked
+	jQuery("#payment-form #pay-with-fd").click(function(e) {
+		e.preventDefault();
+		/*if (curSymbol !== fdSymbol) {
+			jQuery('.currency-symbol').text(fdSymbol);
+		}*/
+		setPriceText('fd', '$', formattedPrice);
+		jQuery("#id-main-submit").removeAttr("disabled");
+		if (type == 'recurring') {
+			jQuery("#ppload").unload(memberdeck_pluginsurl + '/templates/_ppSubForm.php');
+		}
+		else {
+			jQuery("#ppload").unload(memberdeck_pluginsurl + '/templates/_ppForm.php');
+		}
+		if (!idset) {
+			jQuery("#stripe-input").show();
+			//show_registration();
+			jQuery(".card-number, .card-cvc, card-expiry-month, card-expiry-year").addClass("required");
+		}
+		jQuery("#id-main-submit").attr("name", "submitPaymentFD");
+		jQuery("#id-main-submit").text(idc_localization_strings.complete_checkout);
+		jQuery(".pay_selector").removeClass('active');
+		jQuery(this).addClass("active");
+
+		jQuery('.finaldesc').hide();
+		jQuery("#finaldescStripe").show();
+	});
+	jQuery('#payment-form #pay-with-mc').click(function(e) {
+		e.preventDefault();
+		var globalCurrencySym = jQuery("#finaldescOffline").data('currency-symbol');
+		setPriceText('mc', globalCurrencySym, formattedPrice);
+		jQuery("#id-main-submit").removeAttr("disabled");
+		jQuery("#stripe-input").hide();
+		jQuery("#id-main-submit").attr("name", "submitPaymentMC");
+		jQuery("#id-main-submit").text(idc_localization_strings.complete_checkout);
+		jQuery(".pay_selector").removeClass('active');
+		jQuery(this).addClass("active");
+
+		jQuery('.finaldesc').hide();
+		jQuery("#finaldescOffline").show();
+	});
+	jQuery('#payment-form #pay-with-credits').click(function(e) {
+		e.preventDefault();
+		setPriceText('credits', creditsLabel, formattedPrice);
+		
+		jQuery("#id-main-submit").removeAttr("disabled");
+		jQuery("#stripe-input").hide();
+		jQuery("#id-main-submit").attr("name", "submitPaymentCredits");
+		jQuery("#id-main-submit").text(idc_localization_strings.complete_checkout);
+		jQuery(".pay_selector").removeClass('active');
+		jQuery(this).addClass("active");
+
+		jQuery('.finaldesc').hide();
+		jQuery("#finaldescCredits").show();
+	});
+	// Coinbase payment gateway selected
+	jQuery('#payment-form #pay-with-coinbase').click(function(e) {
+		e.preventDefault();
+		setPriceText('cb', cbCurSymbol, formattedPrice);
+		jQuery("#id-main-submit").text(idc_localization_strings.pay_with_coinbase);
+		jQuery("#id-main-submit").attr("name", "submitPaymentCoinbase");
+		jQuery("#id-main-submit").removeAttr("disabled");
+		jQuery("#id-main-submit").text(idc_localization_strings.pay_with_coinbase);
+		
+		jQuery(".pay_selector").removeClass('active');
+		jQuery(this).addClass("active");
+		
+		jQuery("#stripe-input").hide();
+		//hide_registration();
+		jQuery(".pay_selector").removeClass('active');
+		jQuery(this).addClass("active");
+		
+		jQuery('.finaldesc').hide();
+		jQuery("#finaldescCoinbase").show();
+        jQuery(".card-number, .card-cvc, .card-expiry-month, .card-expiry-year").removeClass("required");
+	});
+	// Authorize.Net payment gateway selected
+	jQuery('#payment-form #pay-with-authorize').click(function(e) {
+		e.preventDefault();
+		setPriceText('authorize', '$', formattedPrice);
+		jQuery("#id-main-submit").text(idc_localization_strings.complete_checkout);
+		jQuery("#id-main-submit").attr("name", "submitPaymentAuthorize");
+		jQuery("#id-main-submit").removeAttr("disabled");
+		
+		jQuery(".pay_selector").removeClass('active');
+		jQuery(this).addClass("active");
+		//console.log('idset: ', idset, ', customerId: ', customerId, ', !idset: ', !idset, ', !customerId: ', !customerId);
+		if (!idset || !customerId) {
+			jQuery("#stripe-input").show();
+			//show_registration();
+			jQuery(".card-number, .card-cvc, card-expiry-month, card-expiry-year").addClass("required");
+		}
+		jQuery('.finaldesc').hide();
+		jQuery("#finaldescStripe").show();
+	});
+	jQuery('#payment-form #pay-with-ppadaptive').click(function(e) {
+		e.preventDefault();
+		setPriceText('ppadaptive', curSymbol, formattedPrice);
+		jQuery("#id-main-submit").removeAttr("disabled");
+		jQuery("#id-main-submit").text(idc_localization_strings.pay_with_paypal);
+		jQuery("#id-main-submit").attr("name", "submitPaymentPPAdaptive");
+	    jQuery("#id-main-submit").removeAttr("disabled");
+	    
+		jQuery("#stripe-input").hide();
+		jQuery(".pw").parents('.form-row').hide();
+		jQuery(".cpw").parents('.form-row').hide();
+	    jQuery(".pay_selector").removeClass('active');
+	    jQuery(this).addClass("active");
+		// Loading the form and setting the payment key
+		if (type == 'recurring' || txnType == 'preauth') {
+			jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppAdaptiveSubForm.php');
+		}
+		else {
+			jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppAdaptiveForm.php');
+		}
+		//jQuery("#finaldescPPAdaptive").show();
+		jQuery('.finaldesc').hide();
+		jQuery("#finaldescPayPal").show();
+	});
+	function removeCB() {
+		jQuery("#payment-form #pay-with-coinbase").remove();
+		jQuery('#finaldescCoinbase').remove();
+	}
+	function no_methods1() {
+		var selCount = jQuery('#payment-form .pay_selector').length;
+		if (selCount < 1) {
+			if (isFree !== 'free') {
+				jQuery(".finaldesc").hide();
+				jQuery("#stripe-input").hide();
+				jQuery('#payment-form #id-main-submit').text(idc_localization_strings.no_payments_available);
+			}
+		}
+		else if (selCount == 1) {
+			jQuery('.payment-type-selector').hide();
+			var showCC = 0;
+			if (es == 1) {
+				jQuery("#id-main-submit").attr("name", "submitPaymentStripe");
+				showCC = 1;
+			}
+			else if (jQuery('#payment-form .pay_selector').attr('id') == 'pay-with-fd') {
+				jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentFD");
+				showCC = 1;
+			}
+			else if (eauthnet == 1) {
+				jQuery("#payment-form #id-main-submit").attr("name", "submitPaymentAuthorize");
+				showCC = 1;
+			}
+			if (!idset && showCC == 1) {
+				jQuery("#stripe-input").show();
+				//show_registration();
+			}
+			if (showCC == 1) {
+				jQuery("#id-main-submit").text(idc_localization_strings.complete_checkout);
+				jQuery("#finaldescStripe").show();
+				jQuery(".card-number, .card-cvc, card-expiry-month, card-expiry-year").addClass("required");
+				jQuery("#id-main-submit").removeAttr("disabled");
+			}
+			else {
+				//jQuery("#id-main-submit").text("No Payment Options Available");
+			}
+		}
 	}
 
 	function check_email() {
@@ -407,7 +525,7 @@ jQuery(document).ready(function() {
 				var	json = JSON.parse(res);
 				//console.log(json);
 				var response = json.response;
-				if (!idcIsLoggedIn() && response == 'exists') {
+				if (!logged && response == 'exists') {
 					jQuery(".payment-errors").html("<span id=\"email-error\">" + idc_localization_strings.email_already_exists + "<br>" + idc_localization_strings.please + " <a class=\"login-redirect\" href=\"" + memberdeck_durl + "\">"+ idc_localization_strings.login +"</a></span>");
 					jQuery("#id-main-submit").removeAttr("disabled");
 					jQuery('#email-error .login-redirect').click(function(e) {
@@ -417,7 +535,8 @@ jQuery(document).ready(function() {
 					});
 				}
 				else {
-					if (idcPayVars.isFree !== 'free') {
+					jQuery(".payment-errors").html("");
+					if (isFree !== 'free') {
 						//console.log('not free');
 						processPayment();
 					}
@@ -428,6 +547,16 @@ jQuery(document).ready(function() {
 				}
 			}
 		});
+	}
+
+	function hide_registration() {
+		jQuery(".pw").parents('.form-row').hide();
+		jQuery(".cpw").parents('.form-row').hide();
+	}
+
+	function show_registration() {
+		jQuery(".pw").parents('.form-row').show();
+		jQuery(".cpw").parents('.form-row').show();
 	}
 
 	jQuery('.reveal-login').click(function(e) {
@@ -446,15 +575,13 @@ jQuery(document).ready(function() {
 		e.preventDefault();
 		jQuery(this).hide();
 		jQuery('#create_account').show();
-		setGuestCheckout();
 	});
 	jQuery("#id-main-submit").click(function(e) {
-		e.preventDefault();
-		if (idcCheckoutError()) {
-			return;
-		}
-		var submitName = jQuery(this).attr('name');
-		if (es == '1' && idcPayVars.isFree !== 'free') {
+		jQuery(document).trigger('idcCheckoutSubmit');
+		if (es == '1' && isFree !== 'free') {
+			if (scpk.length > 1) {
+				//memberdeck_pk = scpk;
+			}
 			if (jQuery('.pay_selector').length > 1) {
 				if (jQuery('#pay-with-stripe').hasClass('active')) {
 					Stripe.setPublishableKey(memberdeck_pk);
@@ -464,19 +591,104 @@ jQuery(document).ready(function() {
 				Stripe.setPublishableKey(memberdeck_pk);
 			}
 		}
-		jQuery(document).trigger('idcCheckoutSubmit', submitName);
+		e.preventDefault();
+		jQuery("#id-main-submit").attr("disabled", "disabled").addClass('processing');
+		var fname = jQuery(".first-name").val();
+		//var lname = jQuery(".last-name").val();
+		var email = jQuery("#payment-form .email").val();
+		var is_terms = ((jQuery('.idc-terms-checkbox').length > 0) ? true : false);
+		var terms_checked = ((jQuery('.idc-terms-checkbox').length > 0) ? jQuery('.terms-checkbox-input').is(':checked') : '');
+		
+		var pw = jQuery(".pw").val();
+		var cpw = jQuery(".cpw").val();
+		var pid = jQuery("#payment-form").data('product');
+		var error = false;
+		if (!logged) {
+			if (jQuery('.pw').is(':visible')) {
+				if (pw !="" && cpw!="" && pw !== cpw) {
+					jQuery(".payment-errors").text(idc_localization_strings.pass_dont_match);
+					jQuery('.pw').addClass(error_class);
+					jQuery('.cpw').addClass(error_class);
+					jQuery("#id-main-submit").removeAttr("disabled").removeClass('processing');
+					jQuery("#id-main-submit").text(idc_localization_strings.continue);
+					error = true;
+				}
+				else if (fname.length < 1  || (pw!="" && pw.length < 5) || validateEmail(email) == false) {
+				//	if (pw.length < 1) { jQuery(".pw").addClass(error_class) } else { jQuery(".pw").removeClass(error_class) }
+					
+					jQuery(".payment-errors").append(idc_localization_strings.registeration_fields_error_text);
+					jQuery("#id-main-submit").removeAttr("disabled");
+					jQuery("#id-main-submit").text(idc_localization_strings.continue);
+					error = true;
+				}
+				else {
+					jQuery('.pw').removeClass(error_class);
+					jQuery('.cpw').removeClass(error_class);
+				}
+			}
+			else {
+				if (fname.length < 1  || validateEmail(email) == false) {
+					jQuery(".payment-errors").append(idc_localization_strings.complete_all_fields);
+					jQuery("#id-main-submit").removeAttr("disabled");
+					jQuery("#id-main-submit").text(idc_localization_strings.continue);
+					error = true;
+				}
+			}
+			if (fname.length < 1) { jQuery(".first-name").addClass(error_class) } else { jQuery(".first-name").removeClass(error_class) }
+			//if (lname.length < 1) { jQuery(".last-name").addClass(error_class) } else { jQuery(".last-name").removeClass(error_class) }
+			if (validateEmail(email) == false) { jQuery("#payment-form .email").addClass(error_class) } else { jQuery("#payment-form .email").removeClass(error_class) }
+			if (!error) {
+				jQuery(".payment-errors").html("");
+				if (jQuery('#stripe-input').is(':visible')) {
+					error = checkCreditCard();
+				}
+			}
+		} else {
+			// User is logged in, check credit card fields
+			if (jQuery('#stripe-input').is(':visible')) {
+				error = checkCreditCard();
+			}
+		}
+		
+		// Check if there is no error on this stage, then check for terms
+		
+		/* if (!error) {
+			// Check if there is terms checkbox present whether it's checked or not
+			if(is_terms) {			
+				if (!terms_checked) {
+					var terms_message = jQuery('#idc-hdn-error-terms-privacy').val();
+					jQuery(".payment-errors").text(idc_localization_strings.accept_terms + " " + terms_message);
+					jQuery("#id-main-submit").removeAttr("disabled");
+					jQuery("#id-main-submit").text(idc_localization_strings.continue);
+					var error = true;
+				} else {
+					//jQuery(".payment-errors").hide();
+					jQuery("#id-main-submit").removeAttr("disabled");
+					jQuery("#id-main-submit").text(idc_localization_strings.continue);
+				}
+			}
+		} */
+		
+		//console.log('error: ', error);
+		if (error) {
+			jQuery("#id-main-submit").removeClass('processing').removeAttr('disabled');
+			return false;
+		}
+		else {
+			check_email();
+		}
 	});
 	
 	function processFree() {
 		var fname = jQuery(".first-name").val();
-		var lname = jQuery(".last-name").val();
+		//var lname = jQuery(".last-name").val();
 		var email = jQuery("#payment-form .email").val();
 		var pw = jQuery(".pw").val();
 		var cpw = jQuery(".cpw").val();
 		var pid = jQuery("#payment-form").data('product');
 		var customer = ({'product_id': pid,
 					    	'first_name': fname,
-							'last_name': lname,
+							//'last_name': lname,
 							'email': email,
 							'pw': pw});
 		//console.log(customer);
@@ -489,14 +701,14 @@ jQuery(document).ready(function() {
 	    		json = JSON.parse(res);
 	    		if (json.response == 'success') {
 	    			var product = json.product;
-	    			window.location = idcPayVars.redirectURL + permalink_prefix + "idc_product=" + product;
+	    			window.location = memberdeck_durl + permalink_prefix + "idc_product=" + product;
 	    			jQuery(document).trigger('idcFreeSuccess', customer);
 	    		}
 	    	}
 		});
 	}
 	function processPayment() {
-		var extraFields = jQuery('#extra_fields input, #extra_fields select');
+		var extraFields = jQuery('#extra_fields input');
 		var fields = {'posts': {}};
 		jQuery.each(extraFields, function(x, y) {
 			var name = jQuery(this).attr('name');
@@ -508,12 +720,6 @@ jQuery(document).ready(function() {
 					fields.posts[x].name = name;
 					fields.posts[x].value = value;
 				}
-			}
-			else if (this.tagName.toUpperCase() == 'SELECT') {
-				value = jQuery(this).find(':selected').val();
-				fields.posts[x] = {};
-				fields.posts[x].name = name;
-				fields.posts[x].value = value;
 			}
 			else {
 				value = encodeURIComponent(jQuery(this).val());
@@ -528,36 +734,38 @@ jQuery(document).ready(function() {
 		});
 		var pwywPrice = parseFloat(jQuery('input[name="pwyw-price"]').val());
 		if (jQuery("#id-main-submit").attr("name") == "submitPaymentStripe") {
+			jQuery(".payment-errors").text("");
 			jQuery("#id-main-submit").text(idc_localization_strings.processing + '...');
-			if (!idcPayVars.idset) {
+			if (!idset) {
 				var fname = jQuery(".first-name").val();
-				var lname = jQuery(".last-name").val();
+				//var lname = jQuery(".last-name").val();
 				try {
 					Stripe.createToken({
 			        number: jQuery(".card-number").val(),
 			        cvc: jQuery(".card-cvc").val(),
 			        exp_month: jQuery(".card-expiry-month").val(),
 			        exp_year: jQuery(".card-expiry-year").val(),
-			        name: fname + ' ' + lname,
+			        name: fname ,
+			       // name: fname + ' ' + lname,
 			        address_zip: jQuery(".zip-code").val()
 				    }, stripeResponseHandler);
 				}
 				catch(e) {
 					jQuery('#id-main-submit').removeAttr('disabled').removeClass('processing');
 					jQuery('#id-main-submit').text(idc_localization_strings.continue_checkout);
-					jQuery(".payment-errors").text(idc_localization_strings.stripe_credentials_problem_text);
+					jQuery(".payment-errors").text(idc_localization_strings.strip_credentials_problem_text);
 				}
 			}
 			else {
 				//jQuery("#id-main-submit").text(idc_localization_strings.processing + '...');
  				var pid = jQuery("#payment-form").data('product');
 				var fname = jQuery(".first-name").val();
-				var lname = jQuery(".last-name").val();
+				//var lname = jQuery(".last-name").val();
 				var email = jQuery("#payment-form .email").val();
 				var pw = jQuery(".pw").val();
 				var customer = ({'product_id': pid,
 							    	'first_name': fname,
-									'last_name': lname,
+									//'last_name': lname,
 									'email': email,
 									'pw': pw});
 				//console.log(customer);
@@ -582,7 +790,7 @@ jQuery(document).ready(function() {
 						    //_vis_opt_goal_conversion(202);
 			    			// set a timeout for 1 sec to allow trigger time to fire
 			    			setTimeout(function() {
-			    				window.location = idcPayVars.redirectURL + permalink_prefix + "idc_product=" + product + "&paykey=" + paykey + queryString;
+			    				window.location = memberdeck_durl + permalink_prefix + "idc_product=" + product + "&paykey=" + paykey + queryString;
 			    			}, 1000);
 			    		}
 			    		else {
@@ -602,10 +810,11 @@ jQuery(document).ready(function() {
 		    return false;
 		}
 		else if (jQuery("#id-main-submit").attr("name") == "submitPaymentFD") {
+			jQuery(".payment-errors").text("");
 			jQuery("#id-main-submit").text(idc_localization_strings.processing + '...');
 			var pid = jQuery("#payment-form").data('product');
 			var fname = jQuery(".first-name").val();
-			var lname = jQuery(".last-name").val();
+			//var lname = jQuery(".last-name").val();
 			var email = jQuery("#payment-form .email").val();
 			var pw = jQuery(".pw").val();
 			var card = jQuery('.card-number').val();
@@ -614,10 +823,10 @@ jQuery(document).ready(function() {
 			var expiry = exp_month + exp_year;
 			var customer = ({'product_id': pid,
 						    	'first_name': fname,
-								'last_name': lname,
+								//'last_name': lname,
 								'email': email,
 								'pw': pw});
-			if (!idcPayVars.idset) {
+			if (!idset) {
 				var token = 'none';
 			}
 			else {
@@ -644,7 +853,7 @@ jQuery(document).ready(function() {
 					    //_vis_opt_goal_conversion(202);
 		    			// set a timeout for 1 sec to allow trigger time to fire
 		    			setTimeout(function() {
-		    				window.location = idcPayVars.redirectURL + permalink_prefix + "idc_product=" + product + "&paykey=" + paykey + queryString;
+		    				window.location = memberdeck_durl + permalink_prefix + "idc_product=" + product + "&paykey=" + paykey + queryString;
 		    			}, 1000);
 		    		}
 		    		else {
@@ -663,18 +872,19 @@ jQuery(document).ready(function() {
 		    return false;
 		}
 		else if (jQuery("#id-main-submit").attr("name") == "submitPaymentMC") {
+			jQuery(".payment-errors").text("");
 			jQuery("#id-main-submit").text(idc_localization_strings.processing + '...');
 			var pid = jQuery("#payment-form").data('product');
 			var fname = jQuery(".first-name").val();
-			var lname = jQuery(".last-name").val();
+		//	var lname = jQuery(".last-name").val();
 			var email = jQuery("#payment-form .email").val();
 			var pw = jQuery(".pw").val();
 			var customer = ({'product_id': pid,
 						    	'first_name': fname,
-								'last_name': lname,
+								//'last_name': lname,
 								'email': email,
 								'pw': pw});
-			if (!idcPayVars.idset) {
+			if (!idset) {
 				var token = 'none';
 			}
 			else {
@@ -701,7 +911,7 @@ jQuery(document).ready(function() {
 					    //_vis_opt_goal_conversion(202);
 		    			// set a timeout for 1 sec to allow trigger time to fire
 		    			setTimeout(function() {
-		    				window.location = idcPayVars.redirectURL + permalink_prefix + "idc_product=" + product + "&paykey=" + paykey + queryString;
+		    				window.location = memberdeck_durl + permalink_prefix + "idc_product=" + product + "&paykey=" + paykey + queryString;
 		    			}, 1000);
 		    		}
 		    		else {
@@ -720,10 +930,11 @@ jQuery(document).ready(function() {
 		    return false;
 		}
 		else if (jQuery("#id-main-submit").attr("name") == "submitPaymentAuthorize") {
+			jQuery(".payment-errors").text("");
 			jQuery("#id-main-submit").text(idc_localization_strings.processing + '...');
 			var pid = jQuery("#payment-form").data('product');
 			var fname = jQuery(".first-name").val();
-			var lname = jQuery(".last-name").val();
+			//var lname = jQuery(".last-name").val();
 			var email = jQuery("#payment-form .email").val();
 			var pw = jQuery(".pw").val();
 			var card = jQuery('.card-number').val();
@@ -733,10 +944,10 @@ jQuery(document).ready(function() {
 			var cc_code = jQuery('.card-cvc').val();
 			var customer = ({'product_id': pid,
 						    	'first_name': fname,
-								'last_name': lname,
+							//	'last_name': lname,
 								'email': email,
 								'pw': pw});
-			if (!idcPayVars.idset) {
+			if (!idset) {
 				var token = 'none';
 			}
 			else {
@@ -747,7 +958,7 @@ jQuery(document).ready(function() {
 		    	type: 'POST',
 		    	data: {action: 'idmember_create_customer', Source: 'authorize.net', Customer: customer, Token: token, Card: card, Expiry: expiry, CCode: cc_code, Fields: fields.posts, txnType: txnType, Renewable: renewable, PWYW: pwywPrice},
 		    	success: function(res) {
-		    		//console.log(res);
+		    		console.log(res);
 		    		json = JSON.parse(res);
 		    		if (json.response == 'success') {
 		    			var paykey = json.paykey;
@@ -763,7 +974,7 @@ jQuery(document).ready(function() {
 					    //_vis_opt_goal_conversion(202);
 		    			// set a timeout for 1 sec to allow trigger time to fire
 		    			setTimeout(function() {
-		    				window.location = idcPayVars.redirectURL + permalink_prefix + "idc_product=" + product + "&paykey=" + paykey + queryString;
+		    				window.location = memberdeck_durl + permalink_prefix + "idc_product=" + product + "&paykey=" + paykey + queryString;
 		    			}, 1000);
 		    		}
 		    		else {
@@ -782,15 +993,17 @@ jQuery(document).ready(function() {
 		    return false;
 		}
 		else if (jQuery("#id-main-submit").attr("name") == "submitPaymentCredits") {
+			jQuery(".payment-errors").text("");
 			jQuery("#id-main-submit").text(idc_localization_strings.processing + '...');
 			
 			var pid = jQuery("#payment-form").data('product');
 			var fname = jQuery(".first-name").val();
-			var lname = jQuery(".last-name").val();
+			//var lname = jQuery(".last-name").val();
 			var customer = ({'product_id': pid,
-				'first_name': fname,
-				'last_name': lname});
-			var extraFields = jQuery('#extra_fields input, #extra_fields select');
+				'first_name': fname
+				//'last_name': lname
+				});
+			var extraFields = jQuery('#extra_fields input');
 			var fields = {'posts': {}};
 			jQuery.each(extraFields, function(x, y) {
 				var name = jQuery(this).attr('name');
@@ -802,12 +1015,6 @@ jQuery(document).ready(function() {
 						fields.posts[x].name = name;
 						fields.posts[x].value = value;
 					}
-				}
-				else if (this.tagName.toUpperCase() == 'SELECT') {
-					value = jQuery(this).find(':selected').val();
-					fields.posts[x] = {};
-					fields.posts[x].name = name;
-					fields.posts[x].value = value;
 				}
 				else {
 					value = encodeURIComponent(jQuery(this).val());
@@ -838,7 +1045,7 @@ jQuery(document).ready(function() {
 			    			jQuery(document).trigger('creditSuccess', [orderID, custID, userID, product, paykey, null, type]);
 			    			
 							setTimeout(function() {
-			    				window.location = idcPayVars.redirectURL + permalink_prefix + "idc_product=" + product + "&paykey=" + paykey + queryString;
+			    				window.location = memberdeck_durl + permalink_prefix + "idc_product=" + product + "&paykey=" + paykey + queryString;
 			    			}, 1000);
 			    		}
 			    		else {
@@ -852,6 +1059,7 @@ jQuery(document).ready(function() {
 			});
 		}
 		else if (jQuery("#id-main-submit").attr("name") == "submitPaymentCoinbase") {
+			jQuery(".payment-errors").text("");
 			// if user is logged in, then just trigger the Coinbase button
 			jQuery(document).bind('coinbase_modal_closed', function(e, val) {
 				jQuery('#id-main-submit').removeAttr('disabled').text(idc_localization_strings.continue_checkout).removeClass('processing');
@@ -859,15 +1067,15 @@ jQuery(document).ready(function() {
 			
 			var pid = jQuery("#payment-form").data('product');
 			var fname = jQuery(".first-name").val();
-			var lname = jQuery(".last-name").val();
+		//	var lname = jQuery(".last-name").val();
 			var email = jQuery("#payment-form .email").val();
 			var pw = jQuery(".pw").val();
 			var customer = ({'product_id': pid,
 								'first_name': fname,
-								'last_name': lname,
+								//'last_name': lname,
 								'email': email,
 								'pw': pw});
-			var extraFields = jQuery('#extra_fields input, #extra_fields select');
+			var extraFields = jQuery('#extra_fields input');
 			jQuery.each(extraFields, function(x, y) {
 				var name = jQuery(this).attr('name');
 				var type = jQuery(this).attr('type');
@@ -878,12 +1086,6 @@ jQuery(document).ready(function() {
 						fields.posts[x].name = name;
 						fields.posts[x].value = value;
 					}
-				}
-				else if (this.tagName.toUpperCase() == 'SELECT') {
-					value = jQuery(this).find(':selected').val();
-					fields.posts[x] = {};
-					fields.posts[x].name = name;
-					fields.posts[x].value = value;
 				}
 				else {
 					value = encodeURIComponent(jQuery(this).val());
@@ -907,29 +1109,22 @@ jQuery(document).ready(function() {
 					// If level is an upgrade, use the difference price
 					var price = getLevelPrice(json, pwywPrice);
 					// Calling ajax to get the button code
-					// #devnote shouldn't we send customer var instead of single vars?
 					jQuery.ajax({
 						url: memberdeck_ajaxurl,
 						type: 'POST',
-						data: {action: 'idmember_get_coinbase_button', product_id: pid, product_name: json_level.level_name, product_price: price, product_currency: 'USD', fname: fname, lname: lname, email: email, transaction_type: ((type == 'recurring') ? 'recurring' : ''), recurring_period: recPeriod, guestCheckout: idcPayVars.isGuestCheckout, query_string: queryString},
+						data: {action: 'idmember_get_coinbase_button', product_id: pid, product_name: json_level.level_name, product_price: price, product_currency: 'USD', fname: fname,  email: email, transaction_type: ((type == 'recurring') ? 'recurring' : ''), recurring_period: recPeriod, query_string: queryString},
 						success: function(res) {
-							//console.log(res);
 							var json_b = JSON.parse(res);
 							if (json_b.response == "success") {
-								/*var iframeId = 'coinbase_inline_iframe_' + json_b.code;
-								var iframeSrc = 'https://www.coinbase.com/checkouts/' + json_b.code + '/inline';
-								jQuery('#coinbaseload iframe').attr('id', iframeId);
-								jQuery('#coinbaseload iframe').attr('src', iframeSrc);
-								jQuery('#coinbaseload').toggle();*/
-								window.location.href = 'https://www.coinbase.com/checkouts/' + json_b.code;
+								jQuery('#coinbaseload').html(json_b.button_code);
 								jQuery(document).on('coinbase_button_loaded', function(event, code) {
-									console.log('#coinbaseload loaded');
+									//console.log('#coinbaseload loaded');
 									jQuery(document).trigger('coinbase_show_modal', json_b.code);
 																			
 									jQuery(document).on('coinbase_payment_complete', function(event, code){
 										//console.log("Payment completed for button " + code);
 										var product = jQuery("#payment-form").data('product');
-										window.location = idcPayVars.redirectURL + permalink_prefix + "idc_product=" + pid + "&paykey=" + code + queryString;
+										window.location = memberdeck_durl + permalink_prefix + "idc_product=" + pid + "&paykey=" + code + queryString;
 									});
 									
 								});
@@ -951,23 +1146,24 @@ jQuery(document).ready(function() {
 		}
 		// Adaptive PayPal payments
 		else if (jQuery("#id-main-submit").attr('name') == "submitPaymentPPAdaptive") {
+			jQuery(".payment-errors").text("");
 			var pid = jQuery("#payment-form").data('product');
 	        var fname = jQuery(".first-name").val();
-	        var lname = jQuery(".last-name").val();
+	      //  var lname = jQuery(".last-name").val();
 	        var email = jQuery("#payment-form .email").val();
 	        var pw = jQuery(".pw").val();
 	        var customer = ({'product_id': pid,
 	                  'first_name': fname,
-	                  'last_name': lname,
+	                 // 'last_name': lname,
 	                  'email': email,
 	                  'pw': pw});
 			// Calling ajax to get the button code
 			jQuery.ajax({
 				url: memberdeck_ajaxurl,
 				type: 'POST',
-				data: {action: 'idmember_get_ppadaptive_paykey', product_id: pid, Customer: customer, Type: ((type == 'recurring') ? 'recurring' : ''), PWYW: pwywPrice, txnType: txnType, Renewable: renewable, guestCheckout: idcPayVars.isGuestCheckout, queryString: queryString},
+				data: {action: 'idmember_get_ppadaptive_paykey', product_id: pid, Customer: customer, Type: ((type == 'recurring') ? 'recurring' : ''), PWYW: pwywPrice, txnType: txnType, Renewable: renewable, queryString: queryString},
 				success: function(res) {
-					//console.log(res);
+					console.log(res);
 					var json = JSON.parse(res);
 					if (json.response == "success") {
 						//alert('device: ' + getDevice());
@@ -1008,7 +1204,7 @@ jQuery(document).ready(function() {
 			jQuery("#id-main-submit").text(idc_localization_strings.processing + '...');
 			var cCode = jQuery('#payment-form').data('currency-code');
 			var fname = jQuery(".first-name").val();
-			var lname = jQuery(".last-name").val();
+			//var lname = jQuery(".last-name").val();
 			var email = jQuery("#payment-form .email").val();
 			var pw = jQuery(".pw").val();
 			var cpw = jQuery(".cpw").val();
@@ -1033,16 +1229,6 @@ jQuery(document).ready(function() {
 		    				var recPeriod = json.recurring_type.charAt(0).toUpperCase();
 		    				jQuery('#buyform input#pp-times').val(1);
 		    				jQuery('#buyform input#pp-recurring').val(recPeriod);
-		    				if (json.trial_period == 1) {
-		    					jQuery('#buyform input[name="a1"]').val('0');
-		    					jQuery('#buyform input[name="p1"]').val(json.trial_length);
-		    					jQuery('#buyform input[name="t1"]').val(json.trial_type.charAt(0).toUpperCase());
-		    				}
-		    				else {
-		    					jQuery('#buyform input[name="a1"]').remove();
-		    					jQuery('#buyform input[name="p1"]').remove();
-		    					jQuery('#buyform input[name="t1"]').remove();
-		    				}
 		    			}
 	    				jQuery('#buyform').attr('action', memberdeck_paypal);
 	    				jQuery('#buyform input[name="currency_code"]').val(cCode);
@@ -1050,9 +1236,8 @@ jQuery(document).ready(function() {
 	    				jQuery('#buyform input[name="item_name"]').val(json.level_name);
 			    		jQuery('#buyform input[name="return"]').val(memberdeck_returnurl + permalink_prefix + 'ppsuccess=1');
 			    		jQuery('#buyform input[name="cancel_return"]').val(memberdeck_returnurl + permalink_prefix + 'ppsuccess=0');
-			    		jQuery('#buyform input[name="notify_url"]').val(memberdeck_siteurl + permalink_prefix + 'memberdeck_notify=pp&email=' + email + '&guest_checkout=' + idcPayVars.isGuestCheckout + queryString);
+			    		jQuery('#buyform input[name="notify_url"]').val(memberdeck_siteurl + permalink_prefix + 'memberdeck_notify=pp&email=' + email + queryString);
 			    		jQuery('#buyform input[name="business"]').val(memberdeck_pp);
-			    		jQuery('#buyform input[name="discount_amount"]').val('0').remove();
 		    			jQuery("#buyform").submit();
 		    		}
 		    	}
@@ -1062,7 +1247,7 @@ jQuery(document).ready(function() {
 	}
 	function stripeResponseHandler(status, response) {
 		var pwywPrice = parseFloat(jQuery('input[name="pwyw-price"]').val());
-		var extraFields = jQuery('#extra_fields input, #extra_fields select');
+		var extraFields = jQuery('#extra_fields input');
 		var fields = {'posts': {}};
 		jQuery.each(extraFields, function(x, y) {
 			var name = jQuery(this).attr('name');
@@ -1074,12 +1259,6 @@ jQuery(document).ready(function() {
 					fields.posts[x].name = name;
 					fields.posts[x].value = value;
 				}
-			}
-			else if (this.tagName.toUpperCase() == 'SELECT') {
-				value = jQuery(this).find(':selected').val();
-				fields.posts[x] = {};
-				fields.posts[x].name = name;
-				fields.posts[x].value = value;
 			}
 			else {
 				value = encodeURIComponent(jQuery(this).val());
@@ -1104,12 +1283,12 @@ jQuery(document).ready(function() {
 	        formy.append('<input type="hidden" name="stripeToken" value="' + token + '"/>');
 	        var pid = jQuery("#payment-form").data('product');
 			var fname = jQuery(".first-name").val();
-			var lname = jQuery(".last-name").val();
+			//var lname = jQuery(".last-name").val();
 			var email = jQuery("#payment-form .email").val();
 			var pw = jQuery(".pw").val();
 			var customer = ({'product_id': pid,
 						    	'first_name': fname,
-								'last_name': lname,
+								//'last_name': lname,
 								'email': email,
 								'pw': pw});
 			//console.log(customer);
@@ -1134,7 +1313,7 @@ jQuery(document).ready(function() {
 					    //_vis_opt_goal_conversion(202);
 		    			// set a timeout for 1 sec to allow trigger time to fire
 		    			setTimeout(function() {
-		    				window.location = idcPayVars.redirectURL + permalink_prefix + "idc_product=" + product + "&paykey=" + paykey + queryString;
+		    				window.location = memberdeck_durl + permalink_prefix + "idc_product=" + product + "&paykey=" + paykey + queryString;
 		    			}, 1000);
 		    		}
 		    		else {
@@ -1158,15 +1337,13 @@ jQuery(document).ready(function() {
 		jQuery(".payment-errors").text("");
 		jQuery("#id-reg-submit").attr("disabled", "disabled");
 		var fname = jQuery(".first-name").val();
-		var lname = jQuery(".last-name").val();
+		//var lname = jQuery(".last-name").val();
 		var email = jQuery("#payment-form .email").val();
 		var pw = jQuery(".pw").val();
 		var cpw = jQuery(".cpw").val();
 		var regkey = jQuery("form[name='reg-form']").data('regkey');
-		jQuery(this).find('input, select').removeClass(error_class);
 		//console.log(regkey);
 		var update = true;
-		var reqError = false;
 		if (regkey == undefined || regkey == '') {
 			//console.log(uid);
 			//jQuery(".payment-errors").text("There was an error processing your registration. Please contact site administrator for assistance");
@@ -1175,41 +1352,25 @@ jQuery(document).ready(function() {
 
 		if (pw !== cpw) {
 			jQuery(".payment-errors").text(idc_localization_strings.passwords_mismatch_text);
+			jQuery("#id-reg-submit").removeAttr("disabled").removeClass('processing');
 			var error = true;
 		}
 		
-		if (fname.length < 1 || lname.length < 1 || idfValidateEmail(email) == false || pw.length < 5) {
+		if (fname.length < 1 || validateEmail(email) == false || pw.length < 5) {
+			jQuery(".payment-errors").append(idc_localization_strings.registeration_fields_error_text);
+			jQuery("#id-reg-submit").removeAttr("disabled").removeClass('processing');
 			var error = true;
 		}
-
-		var reqFields = jQuery('form[name="reg-form"] input.required:visible, form[name="reg-form"] select.required:visible');
-		jQuery.each(reqFields, function(index, input) {
-			var val = jQuery(input).val();
-			if (jQuery(input).attr('type') == 'checkbox') {
-				if (jQuery(input).prop('checked') == '0') {
-					jQuery(this).addClass(error_class);
-					error = true;
-					reqError = true;
-				}
-			}
-			else if (val == '' || typeof(val) == 'undefined') {
-				jQuery(this).addClass(error_class);
-				error = true;
-				reqError = true;
-			}
-		});
 		//console.log('update: ' + update);
 		if (error == true) {
 			//console.log('error');
-			jQuery(".payment-errors").append(idc_localization_strings.registration_fields_error_text);
-			jQuery("#id-reg-submit").removeAttr("disabled").removeClass('processing');
 			return false;
 		}
 
 		else if (update == true) {
 			var user = ({'regkey': regkey,
 				'first_name': fname,
-				'last_name': lname,
+				//'last_name': lname,
 				'email': email,
 				'pw': pw});
 			jQuery.ajax({
@@ -1236,7 +1397,7 @@ jQuery(document).ready(function() {
 		}
 		else {
 			var user = ({'first_name': fname,
-				'last_name': lname,
+			//	'last_name': lname,
 				'email': email,
 				'pw': pw});
 			// Getting extra fields if any
@@ -1252,12 +1413,6 @@ jQuery(document).ready(function() {
 						fields.posts[x].name = name;
 						fields.posts[x].value = value;
 					}
-				}
-				else if (this.tagName.toUpperCase() == 'SELECT') {
-					value = jQuery(this).find(':selected').val();
-					fields.posts[x] = {};
-					fields.posts[x].name = name;
-					fields.posts[x].value = value;
 				}
 				else {
 					value = encodeURIComponent(jQuery(this).val());
@@ -1291,17 +1446,22 @@ jQuery(document).ready(function() {
 			})
 		}
 	});
+	function validateEmail(email) {
+	    var validate = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+	    return validate.test(email);
+		// "to avoid syntax color changing for now. #RemoveIt
+	}
 	function checkCreditCard() {
 		//console.log('checkCreditCard() called');
 		var error = false;
 		// if Credit card field exists
-		if (jQuery("#stripe-input input.card-number").length > 0) {
+		if (jQuery(".card-number").length > 0) {
 			//console.log('credit card exists');
-			var card_number = jQuery("#stripe-input input.card-number");
-			var card_cvc = jQuery("#stripe-input input.card-cvc");
-			var card_expiry_month = jQuery("#stripe-input input.card-expiry-month");
-			var card_expiry_year = jQuery("#stripe-input input.card-expiry-year");
-			var zip_code = jQuery("#stripe-input input.zip-code");
+			var card_number = jQuery(".card-number");
+			var card_cvc = jQuery(".card-cvc");
+			var card_expiry_month = jQuery(".card-expiry-month");
+			var card_expiry_year = jQuery(".card-expiry-year");
+			var zip_code = jQuery(".zip-code");
 			
 			// Credit card number field
 			if (jQuery(card_number).val().length < 10) {
@@ -1484,8 +1644,13 @@ jQuery(document).ready(function() {
 						var tt = jQuery('.buy-tooltip');
 						jQuery(tt).find('.tt-product-name').text(json.level_name);
 						jQuery(tt).find('.tt-price').text(json.level_price);
-						if (json.credit_value > 0) {
-							jQuery(tt).find('.tt-credit-value').text(json.credit_value);
+						jQuery(tt).find('.tt-credit-value').text(json.credit_value);
+						// Removing the option to pay by credits if it's less than 0, else adding that option if removed
+						if (json.credit_value <= 0) {
+							jQuery('[name="occ_method"]').children('option[value="credit"]').remove();
+						}
+						else {
+							// Add only if user have credits
 							var user_credits = parseFloat(jQuery('.credits-avail').data('credits-available'));
 							if (user_credits >= json.credit_value) {
 								if (jQuery('[name="occ_method"]').children('option[value="credit"]').length <= 0) {
@@ -1495,12 +1660,6 @@ jQuery(document).ready(function() {
 									}));
 								}
 							}
-						}
-						else {
-							// Removing the option to pay by credits if it's less than 0, else adding that option if removed
-							// #devnote there should be a way to simplify all of this manual js hiding
-							jQuery('.tt-credit-sep, .credits-avail, .credit-text').hide();
-							jQuery('[name="occ_method"]').children('option[value="credit"]').remove();
 						}
 						// If instant checkout is not enabled and purchase with credits not available either, redirect to infoLink
 						if (instant_checkout == false) {
@@ -1564,7 +1723,6 @@ jQuery(document).ready(function() {
 		jQuery(tt).find('.tt-price').text('');
 		jQuery(tt).find('.tt-credit-value').text('');
 		jQuery(tt).find('.tt-more').attr('href', '');
-		jQuery(tt).find('.tt-credit-sep, .credits-avail, .credit-text').show();
 	}
 	jQuery('select[name="occ_method"]').change(function() {
 		if (jQuery('select[name="occ_method"]').val().length > 0) {
@@ -1583,10 +1741,11 @@ jQuery(document).ready(function() {
 		var levelid = jQuery('.buy-tooltip').data('levelid');
 		var pid = jQuery('.buy-tooltip').data('pid');
 		var fname = jQuery('.md-firstname').text();
-		var lname = jQuery('.md-lastname').text();
+		//var lname = jQuery('.md-lastname').text();
 		var customer = ({'product_id': levelid,
-	    	'first_name': fname,
-			'last_name': lname});
+	    	'first_name': fname
+			//'last_name': lname
+			});
 		var fields = [{'name': 'project_id', 'value': pid}, {'name': 'project_level', 'value': 0}];
 		if (payMethod == 'cc') {
 			jQuery.ajax({
@@ -1836,7 +1995,7 @@ jQuery(document).ready(function() {
 
 	/* Login form validations */
 	if (jQuery('.md-requiredlogin').length > 0) {
-		//console.log('its here. md-requiredlogin');
+		console.log('its here. md-requiredlogin');
 		jQuery('.md-requiredlogin input[name="wp-submit"]').click(function(e) {
 			var error = false;
 			var blank_username = false;
@@ -1881,7 +2040,7 @@ jQuery(document).ready(function() {
 	jQuery('#edit-profile-submit').click(function(e) {
 		var error = false;
 		var email = jQuery('.email').val();
-		if (idfValidateEmail(email) == false) {
+		if (validateEmail(email) == false) {
 			error = true;
 			jQuery('.email').addClass('error');
 		} else {
@@ -1953,285 +2112,15 @@ jQuery(document).ready(function() {
 	}
 });
 
-jQuery(document).bind('idcCheckoutLoaded', function (e) {
-	setGuestCheckout();
-	setIdcPayObj();
-});
-
-function idcIsLoggedIn() {
-	return jQuery("#payment-form #logged-input").hasClass('yes');
-}
-
-function setGuestCheckout() {
-	idcPayVars.isGuestCheckout = false;
-	var guestCheckoutOn = jQuery('#payment-form').data('guest-checkout');
-	if (guestCheckoutOn) {
-		if (!idcIsLoggedIn() && jQuery('#payment-form input.pw').is(':hidden')) {
-			idcPayVars.isGuestCheckout = true;
-			idcPayVars.redirectURL = idfStripUrlQuery(idf_current_url);
-		}
-	}
-}
-
-function setIdcPayObj() {
-	idcPayVars.idSet = jQuery("#payment-form #stripe-input").data('idset');
-	idcPayVars.isFree = jQuery("#payment-form").data('free');
-}
-
-function no_methods() {
-	var selCount = jQuery('#payment-form .pay_selector').length;
-	if (selCount < 1) {
-		if (idcPayVars.isFree !== 'free') {
-			jQuery(".finaldesc").hide();
-			jQuery("#stripe-input").hide();
-			jQuery('#payment-form #id-main-submit').text(idc_localization_strings.no_payments_available).attr('disabled', 'disabled');
-		}
-	}
-	else if (selCount == 1) {
-		var paySelector = jQuery('#payment-form .pay_selector');
-		jQuery(document).trigger('idcPaySelect', paySelector);
-		jQuery('.payment-type-selector').hide();
-		var showCC = 0;
-		if (es == 1) {
-			idcSetSubmitName('Stripe');
-			showCC = 1;
-		}
-		else if (jQuery('#payment-form .pay_selector').attr('id') == 'pay-with-fd') {
-			idcSetSubmitName('FD');
-			showCC = 1;
-		}
-		else if (eauthnet == 1 && !idcPayVars.isGuestCheckout) {
-			idcSetSubmitName('Authorize');
-			showCC = 1;
-		}
-		if (!idcPayVars.idSet && showCC == 1) {
-			// #devnote showCC should show cc form
-			jQuery("#id-main-submit").text(idc_localization_strings.complete_checkout);
-			jQuery("#payment-form #stripe-input").show();
-			jQuery("#finaldescStripe").show();
-			jQuery(".card-number, .card-cvc, card-expiry-month, card-expiry-year").addClass("required");
-			jQuery("#id-main-submit").removeAttr("disabled");
-		}
-		else {
-			//jQuery("#id-main-submit").text("No Payment Options Available");
-		}
-	}
-	return selCount;
-}
-
-function idcCheckoutErrorClass() {
-	return 'error';
-}
-
-function idcCheckoutFormData() {
-	var data = {
-		fname: jQuery(".first-name").val(),
-		lname: jQuery(".last-name").val(),
-		email: jQuery("#payment-form .email").val(),
-		pw: jQuery(".pw").val(),
-		cpw: jQuery(".cpw").val(),
-		pid: jQuery("#payment-form").data('product')
-	}
-	return data;
-}
-
-function idcCheckoutExtraFields() {
-	var extraFields = jQuery('#extra_fields input, #extra_fields select');
-	var fields = {'posts': {}};
-	jQuery.each(extraFields, function(x, y) {
-		var name = jQuery(this).attr('name');
-		var type = jQuery(this).attr('type');
-		if (type == 'checkbox' || type == 'radio') {
-			if (jQuery(this).attr('checked') == 'checked') {
-				value = jQuery(this).val();
-				fields.posts[x] = {};
-				fields.posts[x].name = name;
-				fields.posts[x].value = value;
-			}
-		}
-		else if (this.tagName.toUpperCase() == 'SELECT') {
-			value = jQuery(this).find(':selected').val();
-			fields.posts[x] = {};
-			fields.posts[x].name = name;
-			fields.posts[x].value = value;
-		}
-		else {
-			value = encodeURIComponent(jQuery(this).val());
-			fields.posts[x] = {};
-			fields.posts[x].name = name;
-			fields.posts[x].value = value;
-		}
-	});
-	var queryString = '';
-	jQuery.each(fields.posts, function() {
-		queryString = queryString + '&' + this.name + '=' + this.value;
-	});
-	return fields;
-}
-
-function idcCheckoutCustomer() {
-	var pid = jQuery("#payment-form").data('product');
-	var fname = jQuery(".first-name").val();
-    var lname = jQuery(".last-name").val();
-    var email = jQuery("#payment-form .email").val();
-    var pw = jQuery(".pw").val();
-	var customer = ({
-		'product_id': pid,
-		'first_name': fname,
-		'last_name': lname,
-		'email': email,
-		'pw': pw
-	});
-	return customer;
-}
-
-function idcSelClass(selector) {
-	var selClass = jQuery(selector).attr('id').replace('pay-with-', '');
-	return selClass;
-}
-
-function idcPaySelectActions(selector) {
-	//e.preventDefault();
-	var curSymbol = jQuery(".currency-symbol").children('sup').text(); // #devnote move to object
-	var formattedPrice = jQuery(".currency-symbol .product-price").text(); // #devnote move to object
-	var type = jQuery("#payment-form").data('type'); // #devnote move to object
-	var txnType = jQuery("#payment-form").data('txn-type'); // #devnote move to object
-	selClass = idcSelClass(selector);
-	switch(selClass) {
-		case 'stripe':
-			curSymbol = jQuery('#stripe-input').data('symbol'); // #devnote move to object?
-			idcSetSubmitName('Stripe');
-			jQuery("#id-main-submit").text(idc_localization_strings.complete_checkout);
-			jQuery('.finaldesc').hide();
-			jQuery("#finaldescStripe").show();
-			idcIdSet();
-			break;
-		case 'paypal':
-			idcSetSubmitName('Paypal');
-			jQuery("#id-main-submit").text(idc_localization_strings.pay_with_paypal);
-			jQuery("#stripe-input, .finaldesc").hide();
-			jQuery("#finaldescPayPal").show();
-        	jQuery(".card-number, .card-cvc, .card-expiry-month, .card-expiry-year").removeClass("required");
-			if (type == 'recurring') {
-				jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppSubForm.php');
-			}
-			else {
-				jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppForm.php');
-			}
-			idcHideRegistration();
-			break;
-		case 'ppadaptive':
-			idcSetSubmitName('PPAdaptive');
-			jQuery("#id-main-submit").text(idc_localization_strings.pay_with_paypal);
-			jQuery("#stripe-input, .finaldesc").hide();
-			jQuery("#finaldescPayPal").show();
-			if (type == 'recurring' || txnType == 'preauth') {
-				jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppAdaptiveSubForm.php');
-			}
-			else {
-				jQuery("#ppload").load(memberdeck_pluginsurl + '/templates/_ppAdaptiveForm.php');
-			}
-			idcHideRegistration();
-			break;
-		case 'fd':
-			curSymbol = '$';
-			idcSetSubmitName('FD');
-			jQuery("#id-main-submit").text(idc_localization_strings.complete_checkout);
-			jQuery('.finaldesc').hide();
-			jQuery("#finaldescStripe").show();
-			idcIdSet();
-			break;
-		case 'mc':
-			curSymbol = jQuery("#finaldescOffline").data('currency-symbol');
-			idcSetSubmitName('MC');
-			jQuery("#id-main-submit").text(idc_localization_strings.complete_checkout);
-			jQuery("#stripe-input, .finaldesc").hide();
-			jQuery("#finaldescOffline").show();
-			break;
-		case 'credits':
-			idcSetSubmitName('Credits');
-			jQuery("#id-main-submit").text(idc_localization_strings.complete_checkout);
-			jQuery("#stripe-input, .finaldesc").hide();
-			jQuery("#finaldescCredits").show();
-			break;
-		case 'coinbase':
-			curSymbol = jQuery('#finaldescCoinbase').data('cb-symbol');
-			idcSetSubmitName('Coinbase');
-			jQuery("#id-main-submit").text(idc_localization_strings.pay_with_coinbase);
-			jQuery("#stripe-input, .finaldesc").hide();
-			jQuery("#finaldescCoinbase").show();
-	        jQuery(".card-number, .card-cvc, .card-expiry-month, .card-expiry-year").removeClass("required");
-			idcHideRegistration();
-			break;
-		case 'authorize':
-			// #integrate with guest checkout
-			curSymbol = '$';
-			idcSetSubmitName('Authorize');
-			jQuery("#id-main-submit").text(idc_localization_strings.complete_checkout);
-			jQuery('.finaldesc').hide();
-			jQuery("#finaldescStripe").show();
-			idcIdSet();
-			break;
-	}
-	if (idcPayVars.trial.trialPeriod == 1) {
-		jQuery("#finaldescTrial").show();
-	}
-	else {
-		jQuery("#finaldescTrial").hide();
-	}
-	jQuery("#id-main-submit").removeAttr("disabled");
-	idcSetPriceText(selClass, curSymbol, formattedPrice);
-}
-
-function idcSetSubmitName(name) {
-	var submitName = 'submitPayment' + name;
-	jQuery("#id-main-submit").attr('name', submitName);
-	jQuery(document).trigger('idcSetSubmitName', submitName);
-}
-
-function idcIdSet() {
-	if (!idcPayVars.idSet) {
-		jQuery("#stripe-input").show();
-		idcShowRegistration();
-		jQuery(".card-number, .card-cvc, card-expiry-month, card-expiry-year").addClass("required");
-	}
-}
-
-function idcHideRegistration() {
-	jQuery(".pw").parents('.form-row').hide();
-	jQuery(".cpw").parents('.form-row').hide();
-}
-
-function idcShowRegistration() {
-	jQuery(".pw").parents('.form-row').show();
-	jQuery(".cpw").parents('.form-row').show();
-}
-
-function idcSetPriceText(gateway, symbol, formattedPrice) {
+function setPriceText(gateway, symbol, formattedPrice) {
 	if (gateway == "credits") {
 		var _credits_value = jQuery("#finaldescCredits .credit-value").text();
 		jQuery('.currency-symbol').children('sup').text(symbol);
-		jQuery('#payment-form .product-price').text(_credits_value);
+		jQuery('.currency-symbol .product-price').text(_credits_value);
 	} else {
 		if (jQuery('.currency-symbol').children('sup').text() !== symbol) {
 			jQuery('.currency-symbol').children('sup').text(symbol);
 		}
-		jQuery('#payment-form .product-price').text(formattedPrice);
+		jQuery('.currency-symbol .product-price').text(formattedPrice);
 	}
-}
-
-function setTrialObj() {
-	idcPayVars.trial = {
-		'trialPeriod': parseInt(jQuery('#payment-form').data('trial-period')),
-		'trialLength': parseInt(jQuery('#payment-form').data('trial-length')),
-		'trialType': jQuery('#payment-form').data('trial-type')
-	}
-}
-
-function isTerms() {
-	return jQuery('.idc-terms-checkbox').length > 0;
-}
-
-function isTermsChecked() {
-	return jQuery('.terms-checkbox-input').is(':checked');
 }

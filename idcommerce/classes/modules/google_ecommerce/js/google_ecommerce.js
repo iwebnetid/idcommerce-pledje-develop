@@ -15,7 +15,7 @@ jQuery(document).ready(function() {
 					if (json.order.transaction_id !== undefined) {var txn_id = json.order.transaction_id};
 					if (json.level.level_name !== undefined) {var name = json.level.level_name};
 					if (json.order.price !== undefined) {var price = json.order.price};
-					//console.log('txn: ' + txn_id + ' name: ' + name + ' price: ' + price);
+					console.log('txn: ' + txn_id + ' name: ' + name + ' price: ' + price);
 					ga('ecommerce:addTransaction', {
 						'id': txn_id,
 						'revenue': parseFloat(price),

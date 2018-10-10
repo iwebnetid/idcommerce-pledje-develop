@@ -20,7 +20,7 @@
                               ?>
                           </div>
                           <div class="md-registered">
-                              <?php echo (isset($registered) ? __('Registered', 'memberdeck').': '.date(idf_date_format(), strtotime($registered)) : '') . "<br>"; ?>
+                              <?php echo (isset($registered) ? __('Registered', 'memberdeck').': '.date("m-d-Y", strtotime($registered)) : '') . "<br>"; ?>
                           </div>
                    </div>
                    <div class="profile-info-wrapper">
@@ -38,11 +38,9 @@
                 </div>
 			</div>
 			<div class="md-dash-sidebar">
-				<?php do_action('idc_dash_above_sidebar'); ?>
 				<ul>
 			      <?php ( function_exists('dynamic_sidebar') ? dynamic_sidebar('dashboard-sidebar')  : ''); ?>
 			   </ul>
-			   <?php do_action('idc_dash_below_sidebar'); ?>
 			</div>
 		</li>
 		<li class="md-box <?php echo $a_width; ?>">
@@ -204,7 +202,7 @@
     <div class="tt-footer">
     	<a href="#" class="tt-close"></a></div>
 		<div class="tt-title"><?php _e('Buy', 'memberdeck'); ?> <span class="tt-product-name"></span></div>
-		<div class="price"><?php echo apply_filters('idc_credit_card_currency', '$'); ?><span class="tt-price"></span> <span class="no-color tt-credit-sep">or</span> <span class="tt-credit-value"></span> 
+		<div class="price"><?php echo apply_filters('idc_credit_card_currency', '$'); ?><span class="tt-price"></span> <span class="no-color">or</span> <span class="tt-credit-value"></span> 
 			<span class="credit-text" data-credit-label-s="<?php _e(strtolower(apply_filters('idc_credits_label', 'credit', false)), 'memberdeck') ?>" data-credit-label-p="<?php _e(strtolower(apply_filters('idc_credits_label', 'credits', true)), 'memberdeck') ?>"><?php _e(strtolower(apply_filters('idc_credits_label', 'credit', false)), 'memberdeck'); ?></span>
 		</div>
 		<div class="credits-avail" data-credits-available="<?php echo $md_credits ?>"><?php _e('you have', 'memberdeck'); ?> <?php echo (isset($md_credits) ? $md_credits : 0); ?> <?php echo (isset($md_credits) && ($md_credits > 1 || $md_credits == 0) ? __(strtolower(apply_filters('idc_credits_label', 'credits', true, $md_credits)).' available', 'memberdeck') : __(strtolower(apply_filters('idc_credits_label', 'credit', false)).' available', 'memberdeck')); ?> </div>

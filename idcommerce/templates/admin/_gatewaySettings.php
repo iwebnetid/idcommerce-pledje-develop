@@ -3,7 +3,7 @@
 	<div class="help">
 		<a href="http://forums.ignitiondeck.com" alt="IgnitionDeck Support" title="IgnitionDeck Support" target="_blank"><button class="button button-large button-primary"><?php _e('Support', 'memberdeck'); ?></button></a>
 		<a href="http://docs.ignitiondeck.com" alt="IgnitionDeck Documentation" title="IgnitionDeck Documentation" target="_blank"><button class="button button-large button-primary"><?php _e('Documentation', 'memberdeck'); ?></button></a>
-	</div>
+	</div>	
 	<div class="md-settings-container">
 	<div class="postbox-container" style="width:65%; margin-right: 3%">
 		<div class="metabox-holder">
@@ -138,12 +138,12 @@
 								</div>
 								<br/>
 								<div class="form-input inline">
-									<input type="checkbox" name="es" id="es" value="1" class="cc-gateway-chkbox" siblings="stripe" <?php echo (isset($es) && $es == 1 ? 'checked="checked"' : ''); ?> <?php echo (isset($eauthnet) && $eauthnet == 1 ? 'disabled="disabled"' : ''); ?>/>
+									<input type="checkbox" name="es" id="es" value="1" class="cc-gateway-chkbox" siblings="stripe" <?php echo (isset($es) && $es == 1 ? 'checked="checked"' : ''); ?> />
 									<label for="es"><?php _e('Enable Stripe', 'memberdeck'); ?></label>
 								</div>
 								<?php if (function_exists('is_id_pro') && is_id_pro()) { ?>
 								<div class="form-input inline">
-									<input type="checkbox" name="esc" id="esc" value="1" class="cc-gateway-chkbox" siblings="stripe" <?php echo (isset($esc) && $esc == 1 ? 'checked="checked"' : ''); ?> <?php echo (isset($eauthnet) && $eauthnet == 1 ? 'disabled="disabled"' : ''); ?>/>
+									<input type="checkbox" name="esc" id="esc" value="1" class="cc-gateway-chkbox" siblings="stripe" <?php echo (isset($esc) && $esc == 1 ? 'checked="checked"' : ''); ?> />
 									<label for="esc"><?php _e('Enable Stripe Connect', 'memberdeck'); ?></label>
 								</div>
 								<?php } ?>
@@ -183,11 +183,8 @@
 									<select id="cb_currency" name="cb_currency">
 										<option value="0"><?php _e('Choose Currency', 'memberdeck'); ?></option>
 										<option value="BTC" <?php echo ($cb_currency == 'BTC' ? 'selected="selected"' : ''); ?>><?php _e('Bitcoin (BTC)', 'memberdeck'); ?></option>
-										<?php 
-										if (!empty($cb_currencies)) {
-											foreach ($cb_currencies as $currency) {
-												echo '<option value="'.strtoupper($currency['id']).'" '.(!empty($cb_currency) && $cb_currency == $currency['id'] ? 'selected="selected"' : '').'>'.$currency['name'].'</option>';
-											}
+										<?php foreach ($cb_currencies as $currency) {
+											echo '<option value="'.strtoupper($currency->iso).'" '.(!empty($cb_currency) && $cb_currency == $currency->iso ? 'selected="selected"' : '').'>'.$currency->name.'</option>';
 										} ?>
 									</select>
 								</div>
@@ -200,7 +197,7 @@
 									<input type="text" name="coinbase_api_secret" id="coinbase_api_secret" value="<?php echo (isset($cb_api_secret) ? $cb_api_secret : ''); ?>"/>
 								</div>
 								<div class="form-input inline">
-									<input disabled="disabled" type="checkbox" name="ecb" id="ecb" value="1" <?php #disable coinbase until commerce integration is completed echo (isset($ecb) && $ecb == 1 ? 'checked="checked"' : ''); ?>/>
+									<input type="checkbox" name="ecb" id="ecb" value="1" <?php echo (isset($ecb) && $ecb == 1 ? 'checked="checked"' : ''); ?>/>
 									<label for="efd"><?php _e('Enable Coinbase', 'memberdeck'); ?></label>
 								</div>
 							</div>
@@ -217,10 +214,34 @@
 									<input type="text" name="auth_transaction_key" id="auth_transaction_key" value="<?php echo (isset($auth_transaction_key) ? $auth_transaction_key : ''); ?>"/>
 								</div>
 								<div class="form-input inline">
-									<input type="checkbox" name="eauthnet" id="eauthnet" value="1" class="cc-gateway-chkbox" <?php echo (isset($eauthnet) && $eauthnet == 1 ? 'checked="checked"' : ''); ?> <?php echo (isset($es) && $es == 1 ? 'disabled="disabled"' : ''); ?>/>
+									<input type="checkbox" name="eauthnet" id="eauthnet" value="1" class="cc-gateway-chkbox" <?php echo (isset($eauthnet) && $eauthnet == 1 ? 'checked="checked"' : ''); ?> />
 									<label for="eauthnet"><?php _e('Enable Authorize.Net', 'memberdeck'); ?></label>
 								</div>
 							</div>
+						<!-- ------------------------- Splash Admin fields ------------------------------------------- -->	
+							<div class="columns" style="width: 29%; padding-left: 2.5%; margin-left: 2.5%; margin-top: 49px; border-left: 1px solid #C8D3DC;">
+								<p>   
+									<img src="<?php echo get_bloginfo('url'); ?>/wp-content/uploads/2017/05/download.png" style="width: 100px;">
+								</p>
+								<div class="form-input">
+									<label for="auth_login_id"><?php _e('Splash Merchant ID', 'memberdeck'); ?></label>
+									<input type="text" name="splash_merchant_id" id="splash_merchant_id" value="<?php echo (isset($splash_merchant_id) ? $splash_merchant_id : ''); ?>"/>
+								</div>
+								<div class="form-input">
+									<label for="auth_transaction_key"><?php _e('Splash API Key', 'memberdeck'); ?></label>
+									<input type="text" name="splash_api_key" id="splash_api_key" value="<?php echo (isset($splash_api_key) ? $splash_api_key : ''); ?>"/>
+									<input type="text" name="splash_api_key" id="splash_api_key" value="<?php echo (isset($splash_api_key) ? $splash_api_key : ''); ?>"/>
+								</div>
+								<!-- <div class="form-input">
+									<label for="auth_transaction_key"><?php _e('Splash Member Id', 'memberdeck'); ?></label>
+									<input type="text" name="splash_member_id" id="splash_member_id" value="<?php echo (isset($splash_member_id) ? $splash_member_id : ''); ?>"/> 
+								</div> -->
+								<div class="form-input inline">
+									<input type="checkbox" name="splashnet" id="splashnet" value="1" class="cc-gateway-chkbox" <?php echo (isset($splashnet) && $splashnet == 1 ? 'checked="checked"' : ''); ?>  />
+									<label for="splashnet"><?php _e('Enable Splash', 'memberdeck'); ?></label>
+								</div>
+							</div>
+						<!-- ---------------------------------------------------------------------- -->		
 				            <div class="columns" style="width: 29%; padding-left: 2.5%; margin-left: 2.5%; margin-top: 40px; border-left: 1px solid #C8D3DC;">
 								<h3>Other Gateways</h3>
 								<div class="form-input inline">

@@ -25,8 +25,7 @@ function get_cperms(){
 	});
 }
 	
-function get_levels(showAll) {
-	showAll = showAll || false;
+function get_levels(showAll = false) {
 	jQuery.ajax({
 		url: md_ajaxurl,
 		type: 'POST',
@@ -106,7 +105,8 @@ function get_levels(showAll) {
 					jQuery('.list-shortcode').show();
 					jQuery('input[name="create_page"]').attr('disabled', 'disabled');
 				}
-				if (leveledit > 0) {
+				if (leveledit) {
+					//console.log(leveledit);
 					jQuery("#product-status").val(levels[leveledit].product_status);
 					jQuery("#product-type").val(levels[leveledit].product_type);
 					jQuery("#level-name").val(levels[leveledit].level_name);
@@ -119,20 +119,6 @@ function get_levels(showAll) {
 					}
 					else {
 						jQuery('#recurring-type').val('monthly');
-					}
-					var trial_period = levels[leveledit].trial_period;
-					if (trial_period == true) {
-						jQuery('#trial_period').attr('checked', 'checked');
-					}
-					else {
-						jQuery('#trial_period').removeAttr('checked');
-					}
-					jQuery('#trial_length').val(levels[leveledit].trial_length);
-					if (levels[leveledit].trial_type.length > 0) {
-						jQuery("#trial-type").val(levels[leveledit].trial_type);
-					}
-					else {
-						jQuery('#trial-type').val('day');
 					}
 					var limit_term = levels[leveledit].limit_term;
 					if (limit_term == 1) {
@@ -203,12 +189,28 @@ function get_levels(showAll) {
 					jQuery("#custom_message").removeAttr('checked');
 				}
 				var type = jQuery("#level-type").val();
-				var meta = idc_level_get_all_level_meta(leveledit);
-				idc_level_form_switch();
+				if (type == 'recurring') {
+					jQuery("#recurring-input").show();
+					jQuery(".combine-products-checkbox").addClass('hide');
+					jQuery(".combine-products-selection").addClass('hide');
+				}
+				else {
+					jQuery("#recurring-input").hide();
+					jQuery(".combine-products-checkbox").removeClass('hide');
+				}
 			});
 			var type = jQuery("#level-type").val();
 			jQuery("#level-type").change(function() {
-				idc_level_form_switch();
+				type = jQuery("#level-type").val();
+				if (type == 'recurring') {
+					jQuery("#recurring-input").show();
+					jQuery(".combine-products-checkbox").addClass('hide');
+					jQuery(".combine-products-selection").addClass('hide');
+				}
+				else {
+					jQuery("#recurring-input").hide();
+					jQuery(".combine-products-checkbox").removeClass('hide');
+				}
 			});
 			jQuery('#enable_renewals').change(function() {
 				if (jQuery('#enable_renewals').attr('checked') == 'checked') {
@@ -246,57 +248,6 @@ function get_levels(showAll) {
 			});
 			//Now that we know all level data is loaded, move onto creator permissions for levels
 			get_cperms();
-			idc_level_form_switch();
 		}
 	});
-}
-
-function idc_level_get_all_level_meta(level_id) {
-	jQuery.ajax({
-		url: md_ajaxurl,
-		type: 'POST',
-		data: {action: 'idc_level_get_all_level_meta', id: level_id},
-		success: function(res) {
-			if (typeof(meta) !== undefined) {
-				json = JSON.parse(res);
-				idc_print_level_meta(json);
-			}
-		},
-		error: function() {
-			return;
-		}
-	});
-}
-
-function idc_print_level_meta(meta) {
-	jQuery.each(meta, function(i,data) {
-		if (typeof(data) !== undefined) {
-			var div = jQuery('div[data-meta-key="' + data.meta_key + '"]');
-			jQuery.each(data.meta_value, function(k,v) {
-				jQuery(div).find(' .' + data.meta_key + '[data-key-label="' + k + '"]').val(v);
-			});
-		}
-	});
-}
-
-function idc_level_form_switch() {
-	var type = jQuery("#level-type").val();
-	switch(type) {
-		case 'recurring':
-			jQuery("#recurring-input").show();
-			jQuery("#license-input").hide();
-			jQuery(".combine-products-checkbox").addClass('hide');
-			jQuery(".combine-products-selection").addClass('hide');
-			break;
-		case 'standard':
-			jQuery("#recurring-input").hide();
-			jQuery("#license-input").show();
-			jQuery(".combine-products-checkbox").removeClass('hide');
-			break;
-		default:
-			jQuery("#recurring-input").hide();
-			jQuery("#license-input").hide();
-			jQuery(".combine-products-checkbox").removeClass('hide');
-			break;
-	}
 }

@@ -1,5 +1,4 @@
 <form action="" method="post" id="buyform">
-	<!-- attempting to modify any values in this form will result in automatic IP and account ban -->
 	<input type="hidden" name="cmd" value="_xclick">
 	<input type="hidden" name="business" value="">
 	<input type="hidden" name="lc" value="US">
@@ -15,5 +14,4 @@
 	<input type="hidden" name="cancel_return" value="">
 	<input type="hidden" name="notify_url" value="">
 	<input type="hidden" name="bn" value="IgnitionDeck_SP">
-	<input type="hidden" name="discount_amount" value="" disabled="disabled">
 </form>

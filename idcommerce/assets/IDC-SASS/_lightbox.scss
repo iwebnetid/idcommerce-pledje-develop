@@ -29,33 +29,29 @@
 		padding-top:25px;
 		border-radius: 6px;
 		border:2px solid transparent;
-		width: auto;
+		width:640px;
 		h2 { 
 			color:#a4d13b;
 			font-size:42px;
-			margin-bottom:9px;
-			@include breakpoint(baby-bear) { 
-	  			font-size: 2em;
-	  		}
-		}
+			margin-bottom:9px; }
 		table {
-			border-collapse: collapse;
-			border-spacing: 0;
-			background-color: transparent;
+		  border-collapse: collapse;
+		  border-spacing: 0;
+		  background-color: transparent;
 		}
 		td,th {
-			padding: 0;
-			text-align: left;
+		  padding: 0;
+		  text-align: left;
 		}
 		* {
-			-webkit-box-sizing: border-box;
-			-moz-box-sizing: border-box;
-			box-sizing: border-box;
+		  -webkit-box-sizing: border-box;
+		  -moz-box-sizing: border-box;
+		  box-sizing: border-box;
 		}
 		.table {
-			width: 100%;
-			max-width: 100%;
-			margin-bottom: 20px;
+		  width: 100%;
+		  max-width: 100%;
+		  margin-bottom: 20px;
 		}
 		table td {
 			padding-left:25px;
@@ -67,19 +63,15 @@
 		.table > thead > tr > td,
 		.table > tbody > tr > td,
 		.table > tfoot > tr > td {
-			padding: 8px;
-			line-height: 1.42857143;
-			vertical-align: top;
+		  padding: 8px;
+		  line-height: 1.42857143;
+		  vertical-align: top;
 		}
 		.table > thead > tr > th {
-		  	vertical-align: bottom;
+		  vertical-align: bottom;
 		}
 		table tr.orderheader td {
-		  	border: none;
-		  	@include breakpoint(baby-bear) { 
-	  			display: block;
-	  			text-align: left;
-	  		}
+		  border: none;
 		}
 		table .right {
 			text-align:right;
@@ -134,9 +126,6 @@
 				font-size:18px;
 				font-weight:400;
 				text-align:left;
-				@include breakpoint(baby-bear) { 
-		  			font-size: 16px;
-		  		}
 			}
 			table .rowbg th.left {
 				text-align:left;
@@ -171,9 +160,9 @@
 				height:49px;
 				font-size:12px;
 				text-transform:uppercase;
-				/*padding-top:12px;*/
+				padding-top:12px;
 				text-align:right;
-				vertical-align: middle;
+
 			}
 
 			table .totalprice {
@@ -188,9 +177,6 @@
 
 			table .totalprice b {
 				font-size:25px;
-				@include breakpoint(baby-bear) { 
-		  			font-size: 16px;
-		  		}
 			}
 		}
 		.print-details {
@@ -199,10 +185,6 @@
 				td {
 					padding-top:15px;
 					padding-bottom:50px;
-					@include breakpoint(baby-bear) {
-						text-align: left;
-			  			display: block;
-			  		}
 				}
 
 				.email {
@@ -214,9 +196,6 @@
 
 				.right {
 					text-align:right;
-					@include breakpoint(baby-bear) {
-						text-align: left;
-			  		}
 				}
 
 				a.receipt {
@@ -238,10 +217,6 @@
 				color:#364d65;
 				font-size:25px;
 				margin-bottom:20px;
-				@include breakpoint(baby-bear) {
-					font-size: 1em;
-					margin-bottom: 10px;
-		  		}
 			}
 			.friendlink {
 				margin-bottom:100px;
@@ -255,11 +230,6 @@
 					  width: 60px;
 					  height: 40px;
 					}
-					@include breakpoint(baby-bear) {
-						margin-bottom: 10px;
-						display: block;
-						float: none;
-			  		}
 				}
 				.text {
 					float:left;
@@ -268,19 +238,11 @@
 					font-size:12px;
 					line-height:19px;
 					margin-top:0;
-					@include breakpoint(baby-bear) {
-						margin-bottom: 10px;
-						display: block;
-						float: none;
-			  		}
 				}
 				.text a {
 					text-decoration:none;
 					color:#3ca7c5;
 				}
-				@include breakpoint(baby-bear) {
-					margin-bottom: 10px;
-		  		}
 			}
 			.sharelink {
 				font-size:12px;
@@ -294,15 +256,6 @@
 					color:#b0b9c4;
 				}
 			}
-			> .social-share {
-				padding-left: 0;
-				~ .social-share {
-					padding-left: 5px;
-				}
-			}
-			@include breakpoint(baby-bear) {
-				padding: 0;
-	  		}
 		}
 }
 
@@ -342,7 +295,7 @@
 		display: block;
 	}
 	.idc-social-sharing-box .idc-order-info {
-		width: auto;
+		width: 100%;
 	}
 	.print-order .table {
 		width: 100%;

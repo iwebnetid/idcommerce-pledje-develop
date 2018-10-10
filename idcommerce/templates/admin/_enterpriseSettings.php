@@ -9,13 +9,11 @@
 		<div class="postbox-container" style="width:60%; margin-right: 5%">
 			<div class="metabox-holder">
 				<div class="meta-box-sortables" style="min-height:0;">
-					<?php do_action('ide_above_enterprise_settings'); ?>
+					<?php if ($eppadap) { ?>
 					<div class="postbox">
-						<h3 class="hndle"><span><?php _e('Platform Settings', 'memberdeck'); ?></span></h3>
+						<h3 class="hndle"><span><?php _e('Fee Settings', 'memberdeck'); ?></span></h3>
 						<div class="inside">
 							<form method="POST" action="" id="idc_enterprise_settings" name="idc_enterprise_settings">
-								<?php do_action('ide_before_enterprise_settings'); ?>
-								<?php if ($eppadap) { // #devnote move this to a filter ?>
 								<div class="form-select">
 									<h4><?php _e('PayPal Adaptive', 'memberdeck'); ?></h4>
 									<label for="fee_type"><?php _e('Fee Type', 'memberdeck'); ?></label>
@@ -26,7 +24,7 @@
 										</select>
 									</div>
 								</div>
-								<div class="form-input left half">
+								<div class="form-input">
 									<label for="enterprise_fee"><?php _e('Default Fee Amount (numeric characters only)', 'memberdeck'); ?></label>
 									<div>
 										<input type="text" name="enterprise_fee" id="enterprise_fee" value="<?php echo (isset($enterprise_settings['enterprise_fee']) ? $enterprise_settings['enterprise_fee'] : ''); ?>"/>
@@ -41,14 +39,13 @@
 										</select>
 									</div>
 								</div>
-								<?php } ?>
-								<?php do_action('ide_after_enterprise_settings'); ?>
 								<div class="submit">
-									<input type="submit" name="enterprise_submit" id="enterprise_submit" class="button" value="<?php _e('Save Settings', 'memberdeck'); ?>"/>
+									<input type="submit" name="enterprise_submit" id="enterprise_submit" class="button"/>
 								</div>
 							</form>
 						</div>
 					</div>
+					<?php } ?>
 					<div class="postbox">
 						<h3 class="hndle"><span><?php _e('User Management', 'memberdeck'); ?></span></h3>
 						<div class="inside">
@@ -70,7 +67,6 @@
 							</form>
 						</div>
 					</div>
-					<?php do_action('ide_below_enterprise_settings'); ?>
 				</div>
 			</div>
 		</div>

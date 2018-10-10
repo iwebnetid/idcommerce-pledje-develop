@@ -148,13 +148,13 @@ class ID_Authorize_Net {
 				}
 				else {
 					// Customer payment profile couldn't be created
-					print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $response->getErrorMessage().' '.__LINE__)));
+					print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $response->getErrorMessage())));
 					exit;
 				}
 			}
 			else {
 				// Customer profile couldn't be created
-				print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $response->getErrorMessage().' '.__LINE__)));
+				print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $response->getErrorMessage())));
 				exit;
 			}
 		}

@@ -6,17 +6,6 @@ jQuery(document).ready(function() {
 		setActiveLevel(selLevel);
 	});
 
-	jQuery(document).bind('idc_lightbox_global', function(e, lbSource) {
-		if (lbSource == '.idc_button_lightbox') {
-			var selLevel = jQuery(lbSource).find('select[name="level_select"]:visible').val();
-			if (selLevel > 0) {
-				// using dropdown
-				disablePWYWRecurring(selLevel);
-				setActiveLevel(selLevel);
-			}
-		}
-	});
-
 	jQuery('.idc_lightbox select[name="level_select"]').change(function(e) {
 		// this is fired when we change the lightbox level selection
 		if (jQuery(this).has(':visible')) {

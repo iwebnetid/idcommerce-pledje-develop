@@ -7,11 +7,11 @@
 	<div class="postbox-container" style="width:100%;">
 		<div class="metabox-holder">
 			<div class="meta-box-sortables" style="min-height:0;">
-				<?php if (function_exists('is_id_pro') && is_id_pro()) { ?>
 				<div class="postbox">
 					<h3 class="hndle"><span><?php _e('Crowdfunding Settings', 'memberdeck'); ?></span></h3>
 					<div class="inside">
 						<form method="POST" action="" id="idc_cf_settings" name="idc_cf_settings">
+							<?php if (function_exists('is_id_pro') && is_id_pro()) { ?>
 							<div class="form-input">
 								<label for="project_fund_type"><?php _e('Funding type available for creator submissions.', 'memberdeck'); ?></label><br/>
 								<select id="project_fund_type" name="project_fund_type">
@@ -22,21 +22,20 @@
 									<option value="all" <?php echo (isset($fund_type) && $fund_type == 'all' ? 'selected="selected"' : ''); ?>><?php _e('All Options', 'memberdeck'); ?></option>
 								</select>
 							</div>
-							<p><em><?php _e('Note: 100% funding requires Stripe, Authorize.Net, or First Data be active. Subscriptions require Stripe or Authorize.Net.', 'memberdeck'); ?></em></p>
+							<p><em><?php /* xgettext:no-php-format */_e('Note: 100% funding requires Stripe, Authorize.Net, or First Data be active. Subscriptions require Stripe or Authorize.Net.', 'memberdeck'); ?></em></p>
+							<?php } ?>
 							<div class="form-submit">
 								<input type="submit" value="<?php _e('Save', 'memberdeck'); ?>" id="save_idc_cf_settings" name="save_idc_cf_settings" class="button button-primary button-large" />
 							</div>
 						</form>
 					</div>
 				</div>
-				<?php } ?>
 				<div class="postbox">
 					<h3 class="hndle"><span><?php _e('Product/Level Connections', 'memberdeck'); ?></span></h3>
 					<div class="inside">
 						<form method="POST" action="" id="idmember-settings" name="idmember-settings">
-							<div class="form-input fourth sixth">
+							<div class="form-input">
 								<label for="edit-level"><?php _e('Pair Products to Crowdfunding Levels', 'memberdeck'); ?></label><br/>
-								<input name="edit-level-filter" type="text" value="" placeholder="<?php _e('Refine Results', 'memberdeck'); ?>"/>
 								<select id="edit-level" name="edit-level">
 									<option><?php _e('Choose Product', 'memberdeck'); ?></option>
 								</select>
@@ -85,7 +84,7 @@
 								<?php } ?>
 								<?php } ?>
 								<br style="clear: both;">
-								<button id="save-assignments" class="button button-primary button-large" disabled="disabled"><?php _e('Save Assignments', 'memberdeck'); ?></button>
+								<button id="save-assignments" class="button button-primary button-large"><?php _e('Save Assignments', 'memberdeck'); ?></button>
 							</div>
 						</form>
 					</div>

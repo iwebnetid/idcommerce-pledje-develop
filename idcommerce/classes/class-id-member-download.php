@@ -56,7 +56,6 @@ class ID_Member_Download {
 			$button_text = __('Download', 'memberdeck');
 		}*/
 		$this->button_text = $button_text;
-		add_action('idc_update_download', array($this, 'flush_download_cache'));
 	}
 	function add_download() {
 		global $wpdb;
@@ -81,17 +80,13 @@ class ID_Member_Download {
 		return $res;
 	}
 
-	function flush_download_cache() {
-		idf_flush_object('id_member_download-get_downloads');
-	}
-
 	public static function get_downloads() {
 		$res = idf_get_object('id_member_download-get_downloads');
 		if (empty($res)) {
 			global $wpdb;
 			$sql = 'SELECT * FROM '.$wpdb->prefix.'memberdeck_downloads';
 			$res = $wpdb->get_results($sql);
-			idf_cache_object('id_member_download-get_downloads', $res, 60 * 60 * 12);
+			do_action('idf_cache_object', 'id_member_download-get_downloads', $res, 60 * 60 * 12);
 		}
 		return $res;
 	}

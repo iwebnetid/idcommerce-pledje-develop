@@ -124,9 +124,9 @@ function md_creator_projects() {
 			$url = md_get_durl().$prefix.'create_project=1';
 		}
 		if (current_user_can('create_edit_projects') && idc_creator_settings_enabled()) {
-			echo '<li class="dashtab creator_settings '.(isset($_GET['payment_settings']) ? ' active' : '').'"><a href="'.md_get_durl().$prefix.'payment_settings=1">'.__('Creator Account', 'memberdeck').'</a></li>';
+			echo '<li '.(isset($_GET['payment_settings']) ? 'class="active"' : '').'><a href="'.md_get_durl().$prefix.'payment_settings=1">'.__('Creator Account', 'memberdeck').'</a></li>';
 		}
-		echo '<li class="dashtab my_projects'.(isset($_GET[apply_filters('idc_creator_projects_slug', 'creator_projects')]) || isset($_GET['create_project']) || isset($_GET['project_files']) ? ' active' : '').'"><a href="'.$url.'">'.$tab.'</a></li>';
+		echo '<li '.(isset($_GET[apply_filters('idc_creator_projects_slug', 'creator_projects')]) || isset($_GET['create_project']) || isset($_GET['project_files']) ? 'class="active"' : '').'><a href="'.$url.'">'.$tab.'</a></li>';
 	}
 }
 
@@ -154,35 +154,28 @@ function md_ide_opt_in_required(){
 }
 
 // A new function that returns true if the current user is allowed to create projects
-function md_ide_creator_permissions($user_id = null){
+function md_ide_creator_permissions(){
 	$enable = false;
+	if ( is_user_logged_in() ) {
+		$general = get_option('md_receipt_settings');
+		if (!empty($general)) {
+			$general = maybe_unserialize($general);
 
-	if (empty($user_id)) {
-		$user = wp_get_current_user();
-		if (empty($user)) {
-			return false;
-		}
-		$user_id = $user->ID;
-	}
-	
-	$general = maybe_unserialize(get_option('md_receipt_settings'));
-	if (empty($general)) {
-		return false;
-	}
-
-	$admin_enable = (isset($general['creator_permissions']) ? $general['creator_permissions'] : 1);
-	if (user_can($user_id, 'manage_options') || $admin_enable == 3) {
-		$enable = true;
-	} 
-	elseif ($admin_enable == 2) {
-		//Only owners of the right levels can create projects, so we check to see if there's a level match
-		$levelsowned = ID_Member::get_user_levels($user_id);
-		$levelspermitted = idmember_get_cperms(1);
-		if (!empty($levelsowned)) {
-			foreach ($levelsowned as $cur){
-				if (in_array($cur, $levelspermitted)){
-					$enable = true;
-					break;
+			$admin_enable = (isset($general['creator_permissions']) ? $general['creator_permissions'] : 1);
+			if (current_user_can('manage_options') || $admin_enable == 3) {
+				$enable = true;
+			} 
+			elseif ($admin_enable == 2) {
+				//Only owners of the right levels can create projects, so we check to see if there's a level match
+				$levelsowned = ID_Member::get_user_levels();
+				$levelspermitted = idmember_get_cperms(1);
+				if (!empty($levelsowned)) {
+					foreach ($levelsowned as $cur){
+						if (in_array($cur, $levelspermitted)){
+							$enable = true;
+							break;
+						}
+					}
 				}
 			}
 		}
@@ -212,7 +205,6 @@ function md_ide_creator_projects($content) {
 	$user_id = $current_user->ID;
 	echo '<div class="memberdeck">';
 	include_once IDC_PATH.'templates/_mdProfileTabs.php';
-	echo apply_filters('idc_create_project_button', '<button class="create_project button-medium" onclick="location.href=\''.md_get_durl().$prefix.'create_project=1\'">'.__('Create Project', 'memberdeck').'</button>');
 	echo '<ul class="md-box-wrapper full-width cf"><li class="md-box full"><div class="md-profile author-'.$user_id.'" data-author="'.$user_id.'">';
 	echo '<ul>';
 	$creator_args = array(
@@ -235,7 +227,7 @@ function md_ide_creator_projects($content) {
 					if (empty($thumb)) {
 						$thumb = idcf_project_placeholder_image('thumb');
 					}
-					$project_raised = $project->get_project_raised();
+					$project_raised = apply_filters('id_funds_raised', $project->get_project_raised(), $post_id);
 					$permalink = get_permalink($post_id);
 					if (strtoupper($status) !== 'PUBLISH') {
 						$permalink = $permalink.'&preview=true';
@@ -245,8 +237,7 @@ function md_ide_creator_projects($content) {
 			}
 		}
 	}
-	echo '</ul>';
-	echo '</div></li></ul>';
+	echo '</ul><button class="create_project button-medium" onclick="location.href=\''.md_get_durl().$prefix.'create_project=1\'">'.__('Create Project', 'memberdeck').'</button></div></li></ul>';
 	echo '</div>';
 	$content = ob_get_contents();
 	ob_end_clean();
@@ -259,12 +250,30 @@ function md_ide_subscription_options($array) {
 	$settings = get_option('memberdeck_gateways');
 	if (!empty($settings)) {
 		if (is_array($settings)) {
-			if ($settings['epp'] || $settings['es'] || $settings['eauthnet'] || ($settings['eppadap'] && $settings['epp_fes'])) {
+			if ($settings['epp'] || $settings['esc'] || $settings['eauthnet'] || ($settings['eppadap'] && $settings['epp_fes'])) {
 				$fund_type = get_option('idc_cf_fund_type');
 				if (!empty($fund_type) && ($fund_type == 'all' || $fund_type == 'c_sub')) {
 					if (is_multisite()) {
 						require (ABSPATH . WPINC . '/pluggable.php');
 					}
+					// // If all options to be added, add the options if not already added
+					// if ($fund_type == 'all') {
+					// 	$preauth_present = false; $capture_present = false;
+					// 	for ($i=0 ; $i < count($array) ; $i++) {
+					// 		if ($array[$i]['value'] == 'preauth') {
+					// 			$preauth_present = true;
+					// 		}
+					// 		if ($array[$i]['value'] == 'capture') {
+					// 			$capture_present = true;
+					// 		}
+					// 	}
+					// 	if (!$capture_present) {
+					// 		$array[] = array('value' => 'capture', 'title' => 'Immediately Deliver Funds');
+					// 	}
+					// 	if (!$preauth_present) {
+					// 		$array[] = array('value' => 'preauth', 'title' => '100% Threshold');
+					// 	}
+					// }
 					
 					$array[] = array('value' => 'recurring-weekly', 'title' => __('Subscription - Weekly', 'memberdeck'));
 					$array[] = array('value' => 'recurring-monthly', 'title' => __('Subscription - Monthly', 'memberdeck'));
@@ -320,6 +329,11 @@ function md_ide_check_payment_settings() {
 
 function md_ide_payment_settings($content) {
 	ob_start();
+	
+	echo '<div class="memberdeck">';
+	include_once IDC_PATH.'templates/_mdProfileTabs.php';
+	echo '<ul class="md-box-wrapper full-width cf"><li class="md-box full"><div class="md-profile author-'.$user_id.'" data-author="'.$user_id.'">';
+	echo '<ul>';
 	$current_user = wp_get_current_user();
 	$user_id = $current_user->ID;
 	$content = null;
@@ -383,7 +397,10 @@ function md_ide_payment_settings($content) {
 	}
 	$payment_form = new MD_Form($form);
 	$output = $payment_form->build_form();
-	//echo '<div class="memberdeck">';
+	
+	echo '<div class="memberdeck">';
+	include_once IDC_PATH.'templates/_mdProfileTabs.php';
+	echo '<ul class="md-box-wrapper full-width cf"><li class="md-box full"><div class="md-profile author-'.$user_id.'" data-author="'.$user_id.'">';
 	include_once IDC_PATH.'templates/_creatorSettings.php';
 	$content = ob_get_contents();
 	ob_end_clean();
@@ -638,26 +655,43 @@ function mdid_fes_associations($user_id, $project_id, $post_id, $proj_args, $lev
 	}
 	$new_levels = count($levels) - $count;
 	$recurring_array = array('recurring-weekly', 'recurring-monthly', 'recurring-annual');
+	
 	$i = 0;
 	$post = get_post($post_id);
 	$project_title = $post->post_title;
 	$project_url = get_permalink( $post_id );
-	foreach ($levels as $lvl) {
+	foreach ($levels as $level) {
 		if ($i + 1 <= (count($levels) - $new_levels)) {
 			$level_id = $res[$i]->level_id;
-			$level = new ID_Member_Level($level_id);
-			$level_data = ID_Member_Level::get_level($level_id);
+			$level = new ID_Member_Level();
+			$level_data = $level->get_level($level_id);
 			$args = array();
 			// now we see what has changed
-			//$old_name = $level_data->level_name;
-			$new_name = ($project_title !== $lvl['title'] ? $project_title.': '.$lvl['title'] : $project_title); // #devnote cleanup
-			//$old_price = $level_data->level_price;
+			$update = false;
+			$old_name = $level_data->level_name;
+
+			$update_level_name = (isset($levels[$i]['level_name_change']) ? $levels[$i]['level_name_change'] : true);
+			if ($update_level_name) {
+				$new_name = $project_title.': '.$levels[$i]['title'];
+			} else {
+				$new_name = $level_data->level_name;
+			}
+			if ($old_name !== $new_name) {
+				$update = true;
+			}
+
+			$old_price = $level_data->level_price;
 			$new_price = $levels[$i]['price'];
 			$new_credit_value = (isset($levels[$i]['credit_value']) ? $levels[$i]['credit_value'] : 0);
 
-			//$old_auth = $level_data->txn_type;
+			if ((float) $old_price !== (float) $new_price) {
+				$update = true;
+			}
+
+			$old_auth = $level_data->txn_type;
 			$new_auth = $auth[$i];
-			//$old_recurring_type = $level_data->recurring_type;
+
+			$old_recurring_type = $level_data->recurring_type;
 
 			if (in_array($new_auth, $recurring_array)) {
 				// this is a recurring product
@@ -669,30 +703,40 @@ function mdid_fes_associations($user_id, $project_id, $post_id, $proj_args, $lev
 				$new_level_type = 'lifetime';
 				$new_recurring_type = 'none';
 			}
-			// main data
-			//$args['level_id'] = $level_data->id;
-			$args['level_name'] = $new_name;
-			$args['level_price'] = $new_price;
-			
-			$args['txn_type'] = $new_auth;
-			$args['recurring_type'] = $new_recurring_type;
-			$args['level_type'] = $new_level_type;
-			// defaults
-			$args['plan'] = apply_filters('mdid_fes_associations_plan_id', $level_data->plan);
-			$args['license_count'] = 0;
-			$args['limit_term'] = 0;
-			$args['term_length'] = '';
-			$args['enable_renewals'] = 0;
-			$args['renewal_price'] = '';
-			$args['enable_multiples'] = 1;
-			if (!empty($global_currency) && $global_currency == "credits") {
-				$args['credit_value'] = $new_price;
-			} else {
-				$args['credit_value'] = $new_credit_value;
+
+			if ($old_auth !== $new_auth) {
+				$update = true;
 			}
-			$args['product_type'] = 'purchase';
-			$args = apply_filters('mdid_fes_associations_args', $args, $level_id);
-			$level->update_level($args);
+
+			if ($old_recurring_type !== $new_recurring_type) {
+
+				$update = true;
+			}
+			if ($update) {
+				// main data
+				$args['level_id'] = $level_data->id;
+				$args['level_name'] = $new_name;
+				$args['level_price'] = $new_price;
+				
+				$args['txn_type'] = $new_auth;
+				$args['recurring_type'] = $new_recurring_type;
+				$args['level_type'] = $new_level_type;
+				// defaults
+				$args['plan'] = $level_data->plan;
+				$args['license_count'] = 0;
+				$args['limit_term'] = 0;
+				$args['term_length'] = '';
+				$args['enable_renewals'] = 0;
+				$args['renewal_price'] = '';
+				$args['enable_multiples'] = 1;
+				if (!empty($global_currency) && $global_currency == "credits") {
+					$args['credit_value'] = $new_price;
+				} else {
+					$args['credit_value'] = $new_credit_value;
+				}
+				$args['product_type'] = 'purchase';
+				$level->update_level($args);
+			}
 			do_action('md_ide_update_level', $args, $level_id, $post_id);
 		}
 		else {
@@ -705,7 +749,7 @@ function mdid_fes_associations($user_id, $project_id, $post_id, $proj_args, $lev
 
 			$args = array();
 			$args['product_type'] = 'purchase';//($levels == 0 ? 'donation' : 'purchase');
-			$args['level_name'] = ($project_title !== $title ? $project_title.': '.$title : $title);
+			$args['level_name'] = $project_title.': '.$title;
 			$args['level_price'] = $price;
 			// Based on Global currency, if it's set to Virtual Currency, then set credit value to $price
 			if (!empty($global_currency) && $global_currency == "credits") {
@@ -730,7 +774,7 @@ function mdid_fes_associations($user_id, $project_id, $post_id, $proj_args, $lev
 			$args['recurring_type'] = $recurring_type;
 			if ($level_type == 'recurring') {
 				// $args['plan'] = strtolower($post->post_name.'-'.preg_replace('/[\s:]+/', '-', $title));
-				$args['plan'] = idc_stripe_standardize_plan_name($args['level_name']);
+				$args['plan'] = strtolower(preg_replace('/[\s:]+/', '-', str_replace(html_entity_decode("&nbsp;"), ' ', $args['level_name'])));
 			}
 			$args['license_count'] = 0;
 			$args['limit_term'] = 0;
@@ -739,7 +783,6 @@ function mdid_fes_associations($user_id, $project_id, $post_id, $proj_args, $lev
 			$args['renewal_price'] = '';
 			$args['enable_multiples'] = 1;
 			$args['product_type'] = 'purchase';
-			$args = apply_filters('mdid_fes_associations_args', $args, null);
 			// create level
 			$new_level = $level->add_level($args);
 			$level_id = $new_level['level_id'];
@@ -751,18 +794,13 @@ function mdid_fes_associations($user_id, $project_id, $post_id, $proj_args, $lev
 	}
 }
 
-//add_action('md_ide_add_level', 'md_ide_add_level_actions', 10, 3);
+add_action('md_ide_add_level', 'md_ide_add_level_actions', 10, 3);
 
-/*function md_ide_add_level_actions($args, $level_id, $post_id) {
-	$gateways = get_option('memberdeck_gateways');
-	if (empty($gateways['es']) || !$gateways['es']) {
-		// only run if Stripe is active
-		return;
-	}
+function md_ide_add_level_actions($args, $level_id, $post_id) {
 	// Check if the levels plan is not created already, for this we need post_id, so getting project's post_id
 	$post = get_post($post_id);
 	// if post is published, then only create those levels
-	if (strtolower($post->post_status == 'publish')) {
+	if ($post->post_status == "publish") {
 		$current_user = wp_get_current_user();
 		$user_id = $current_user->ID;
 		if (!empty($args['plan'])) {
@@ -771,8 +809,18 @@ function mdid_fes_associations($user_id, $project_id, $post_id, $proj_args, $lev
 			if (isset($plan_check['message_code']) && $plan_check['message_code'] == "no_plan") {
 				if ($args['level_type'] == "recurring" && $args['level_price'] > 0) {
 					// Getting memberdeck gateways for Stripe currency
-					$stripe_currency = idc_stripe_currency();
-					$recurring_types = idc_stripe_recurring_types();
+					$gateways = get_option('memberdeck_gateways');
+					$stripe_currency = 'USD';
+					if (!empty($gateways)) {
+						if (is_array($gateways)) {
+							$stripe_currency = $gateways['stripe_currency'];
+						}
+					}
+					$recurring_types = array(
+						"weekly" => "week",
+						"monthly" => "month",
+						"annually" => "year"
+					);
 					$plan_args = array(
 						"price" => $args['level_price'],
 						"interval" => $recurring_types[$args['recurring_type']],
@@ -799,69 +847,6 @@ function mdid_fes_associations($user_id, $project_id, $post_id, $proj_args, $lev
 			}
 		}
 	}
-}*/
-
-add_action('id_project_to_publish', 'md_ide_project_publish_actions');
-
-function md_ide_project_publish_actions($post) {
-	if (empty($post->id)) {
-		return;
-	}
-	$gateways = get_option('memberdeck_gateways');
-	if (!empty($gateways['es']) && !empty($gateways['esc'])) {
-		$sc_validation = validate_sc_params($post->post_author);
-		if ($sc_validation) {
-			// run Stripe actions
-			md_ide_create_stripe_plans($post);
-		}
-	}
-}
-
-function md_ide_create_stripe_plans($post) {
-	$project_id = get_post_meta($post->ID, 'ign_project_id', true);
-	if (empty($project_id)) {
-		return;
-	}
-	$assignments = get_assignments_by_project($project_id);
-	if (empty($assignments)) {
-		return;
-	}
-	foreach ($assignments as $assignment) {
-		$level = ID_Member_Level::get_level($assignment->level_id);
-		if (empty($level)) {
-			continue;
-		}
-		if ($level->level_type !== 'recurring' || empty($level->level_price)) {
-			continue;
-		}
-		$stripe_currency = idc_stripe_currency();
-		$plan = idc_stripe_standardize_plan_name($level->level_name);
-		$plan_check = idc_retrieve_stripe_plan($plan, $post->post_author);
-		if (isset($plan_check['message_code']) && $plan_check['message_code'] == "no_plan") {
-			$recurring_types = idc_stripe_recurring_types();
-			$plan_args = array(
-				"price" => $level->level_price,
-				"interval" => $recurring_types[$level->recurring_type],
-				"name" => $level->level_name,
-				"currency" => $stripe_currency,
-				"id" => $plan
-			);
-			$plan_creation = idc_create_stripe_plan($level->id, $post->post_author, $plan_args);
-			if ($plan_creation['response'] == "error") {
-				// Do something with this error
-			} else {
-				$plan_data = $plan_creation['plan'];
-				update_post_meta($post->ID, 'idc_stripe_plan_level_'.$level->id, $plan_data);
-				// Updating the memberdeck_levels table with this plan_id
-				$level->plan = $plan_data->id;
-				$level->level_id = $level->id;
-				$level_array = get_object_vars($level);
-				$level_obj = new ID_Member_Level($level->id);
-				$level_update = $level_obj->update_level($level_array);
-			}
-			continue;
-		}
-	}
 }
 
 /**
@@ -870,24 +855,87 @@ function md_ide_create_stripe_plans($post) {
 add_action('save_post', 'idc_ide_levels_stripe_plan_creation', 15);
 
 function idc_ide_levels_stripe_plan_creation($post_id) {
-	// #devnote this works
 	$post = get_post($post_id);
-	if (strtolower($post->post_status) !== 'publish') {
-		return;
-	}
-	if ($post->post_type !== 'ignition_product') {
-		return;
-	}
-	$gateways = get_option('memberdeck_gateways');
-	if (!empty($gateways['es']) && !empty($gateways['esc'])) {
-		$sc_validation = validate_sc_params($post->post_author);
-		if ($sc_validation) {
-			// run Stripe actions
-			md_ide_create_stripe_plans($post);
+	// If post type is ignition_product
+	if ($post->post_type == "ignition_product") {
+		$settings = get_option('memberdeck_gateways');
+		if (!empty($settings) && is_array($settings)) {
+			// Check if stripe is enabled and stripe connect is enabled
+			$es = (isset($settings['es']) ? $settings['es'] : 0);
+			$esc = (isset($settings['esc']) ? $settings['esc'] : 0);
+			if ($es && $esc) {
+				// Check that author of post is connected to Stripe
+				$user_id = $post->post_author;
+				$sc_validation = validate_sc_params($user_id);
+				if (!$sc_validation) {
+					$allow_plan_creation = false;
+				} else {
+					$allow_plan_creation = true;
+				}
+			}
 		}
 	}
+	// If plan creation is allowed, then create plans in connected author's account
+	if (isset($allow_plan_creation) && $allow_plan_creation) {
+		$recurring_types = array(
+			"weekly" => "week",
+			"monthly" => "month",
+			"annual" => "year"
+		);
 
-	md_ide_create_stripe_plans($post);
+		// Getting project_id
+		$project_id = get_post_meta($post_id, 'ign_project_id', true);
+		// Create Stripe plan for connected IDC products, check if there are any products assignments
+		$project_assignments = get_assignments_by_project($project_id);
+		if (count($project_assignments) > 0) {
+			// Getting Stripe currency
+			$stripe_currency = 'USD';
+			if (!empty($settings)) {
+				if (is_array($settings)) {
+					$stripe_currency = $settings['stripe_currency'];
+				}
+			}
+			// Looping the assignments and checking if any level is recurring type
+			foreach ($project_assignments as $assignment) {
+				$level = ID_Member_Level::get_level($assignment->level_id);
+				// #devnote we can simplify this by re-writing the update_level method to be more dynamic
+				// If this level is recurring/subscription, create a Stripe plan for connected logged-in user, but first check if the level has
+				// a price greater than 0
+				if ($level->level_type == "recurring" && $level->level_price > 0) {
+					// Check if the plan is already created, if yes, don't create again
+					// first encode the_title portion of the string, since it doesn't seem to be caught by normal regex
+					$level->level_name = str_replace(html_entity_decode("&nbsp;"), '-', $level->level_name);
+					// now use regex to replace all spaces with -
+					$plan_id_creating = strtolower(preg_replace('/[\s:]+/', '-', $level->level_name));
+					$plan_check = idc_retrieve_stripe_plan($plan_id_creating, $user_id);
+					if (isset($plan_check['message_code']) && $plan_check['message_code'] == "no_plan") {
+						$args = array(
+							"price" => $level->level_price,
+							"interval" => $recurring_types[$level->recurring_type],
+							"name" => $level->level_name,
+							"currency" => $stripe_currency,
+							"id" => $plan_id_creating
+						);
+						// Creating plan
+						$plan_creation = idc_create_stripe_plan($level->id, $user_id, $args);
+						if ($plan_creation['response'] == "error") {
+							// Do something with this error
+							//echo '<div id="message" class="idc-error error '.$level->id.'">'.$plan_creation['message'].'</div>';
+						} else {
+							$plan = $plan_creation['plan']->__toJSON();
+							update_post_meta($post_id, 'idc_stripe_plan_level_'.$level->id, $plan);
+							// Updating the memberdeck_levels table with this plan_id
+							$level->plan = $plan->id;
+							$level->combined_product = 0;
+							$idc_level = new ID_Member_Level($level->id);
+							$update = $idc_level->update_level((array) $level);
+						}
+					}
+				}
+			}
+		}
+		// exit();
+	}
 }
 
 add_filter('idc_sendtomc_key', 'ide_mckey_settings', 10, 2);
@@ -932,19 +980,10 @@ function ide_mclist_settings($list, $order_id) {
 	return $list;
 }
 
-add_action('id_project_to_pending', 'idc_ide_schedule_submission_notifications');
+add_action('pending_ignition_product', 'md_ide_notify_admin', 10, 2);
 
-function idc_ide_schedule_submission_notifications($post) {
-	wp_schedule_single_event(time() + 30, 'idc_ide_submission_notifications', array($post));
-}
-add_action('idc_ide_submission_notifications', 'md_ide_notify_admin');
-
-function md_ide_notify_admin($post) {
+function md_ide_notify_admin($post_id, $post) {
 	global $global_currency;
-	if (empty($post)) {
-		return;
-	}
-	$post_id = $post->ID;
 	$project_id = get_post_meta($post_id, 'ign_project_id', true);
 	$user_id = $post->post_author;
 	$user = get_userdata($user_id);
@@ -952,7 +991,9 @@ function md_ide_notify_admin($post) {
 
 	$settings = get_option('md_receipt_settings');
 	if (!empty($settings)) {
-		$settings = maybe_unserialize($settings);
+		if (!is_array($settings)) {
+			$settings = unserialize($settings);
+		}
 		$coname = apply_filters('idc_company_name', $settings['coname']);
 		$coemail = $settings['coemail'];
 	}
@@ -960,6 +1001,7 @@ function md_ide_notify_admin($post) {
 		$coname = '';
 		$coemail = '';
 	}
+
 	if (isset($project_id) && $project_id > 0) {
 		$project = new ID_Project($project_id);
 		$the_project = $project->the_project();
@@ -1060,14 +1102,10 @@ function md_ide_notify_admin($post) {
 	}
 }
 
-add_action('idc_ide_submission_notifications', 'md_ide_notify_creator');
+add_action('pending_ignition_product', 'md_ide_notify_creator', 10, 3);
 
-function md_ide_notify_creator($post) {
+function md_ide_notify_creator($post_id, $post) {
 	global $permalink_structure, $global_currency;
-	if (empty($post)) {
-		return;
-	}
-	$post_id = $post->ID;
 	$project_id = get_post_meta($post_id, 'ign_project_id', true);
 	$user_id = $post->post_author;
 	$user = get_userdata($user_id);
@@ -1261,10 +1299,12 @@ function idc_ide_update_notification($post_id, $project_id) {
 		}
 		// company info
 		$settings = get_option('md_receipt_settings');
-		$settings = maybe_unserialize($settings);
 		if (!empty($settings)) {
+			if (!is_array($settings)) {
+				$settings = unserialize($settings);
+			}
 			$coname = apply_filters('idc_company_name', $settings['coname']);
-			$coemail = apply_filters('idc_company_email', $settings['coemail']);
+			$coemail = $settings['coemail'];
 		}
 		else {
 			$coname = '';
@@ -1544,7 +1584,7 @@ function id_idc_render_add_product_box($post) {
 	ob_start();
 	include_once 'templates/_idcAddProductPopup.php';
 	$content = ob_get_contents();
-	ob_end_clean();
+	ob_clean();
 	echo $content;
 	// echo '<label for="myplugin_new_field">';
 	// _e( 'Description for this field', 'myplugin_textdomain' );

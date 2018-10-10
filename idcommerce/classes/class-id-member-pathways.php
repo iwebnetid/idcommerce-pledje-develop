@@ -284,25 +284,6 @@ class ID_Member_Pathways {
 		$idc_order = new ID_Member_Order($order_id);
 		$current_order = $idc_order->get_order();
 		$this->product_id = $current_order->level_id;
-
-		$user_orders = ID_Member_Order::get_orders_by_user($user_id);
-		$like_orders = array(); // saved for future use
-		$active_orders = array();
-		foreach ($user_orders as $order) {
-			// create a list of orders to differentiate between upgrades and renewals
-			if ($order->level_id == $current_order->level_id) {
-				$like_orders[] = $order;
-				if ($order->status == 'active') {
-					// only compare active orders
-					$active_orders[] = $order;
-				}
-			}
-		}
-		if (count($active_orders) > 1) {
-			// this is a renewal
-			return false;
-		}
-
 		// Getting level to get its price
 		$level = ID_Member_Level::get_level($this->product_id);
 
@@ -316,11 +297,11 @@ class ID_Member_Pathways {
 			if ($lower_level) {
 				$idc_order = new ID_Member_Order(null, $user_id, $lower_level->id);
 				$last_order = $idc_order->get_last_order();
-				//$this->LOGShow('cancel_order_on_upgrade_pathways(): last_order', $last_order, true, false);
+				$this->LOGShow('cancel_order_on_upgrade_pathways(): last_order', $last_order, true, false);
 				if (!empty($last_order)) {
 					// Cancelling this last_order
 					$idc_order->id = $last_order->id;
-					//$this->LOGShow('cancelling idc_order', $idc_order, true, false);
+					$this->LOGShow('cancelling idc_order', $idc_order, true, false);
 					$idc_order->cancel_status();
 
 					// Updating new orders expiration date to older orders expiration date

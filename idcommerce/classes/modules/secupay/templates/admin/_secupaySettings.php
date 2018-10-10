@@ -1,8 +1,5 @@
 <div class="wrap ignitiondeck">
 	<div class="icon32" id=""></div><h2 class="title"><?php _e('Secupay Settings', 'memberdeck'); ?></h2>
-	<?php if (isset($_POST['submit_secupay_settings'])) { ?>
-		<div id="message" class="updated"><?php _e('Settings Saved', 'memberdeck'); ?></div>
-	<?php } ?>
 	<div class="help">
 		<a href="http://forums.ignitiondeck.com" alt="IgnitionDeck Support" title="IgnitionDeck Support" target="_blank"><button class="button button-large button-primary"><?php _e('Support', 'memberdeck'); ?></button></a>
 		<a href="http://docs.ignitiondeck.com" alt="IgnitionDeck Documentation" title="IgnitionDeck Documentation" target="_blank"><button class="button button-large button-primary"><?php _e('Documentation', 'memberdeck'); ?></button></a>

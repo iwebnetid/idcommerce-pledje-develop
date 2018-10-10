@@ -17,7 +17,7 @@
 							<?php if (!is_idc_free()) { ?>
 							<p><strong><?php _e('Credit Value', 'memberdeck'); ?></strong>: <?php _e('This is the Credit Price of the Product. If your product is available as a Download purchasable from the Dashboard, then your users will user their Credits to purchase this Product for this many Credits.', 'memberdeck'); ?></p>
 							<p><strong><?php _e('Transaction Type', 'memberdeck'); ?></strong>: <?php _e('Select <em>Order</em> if this is a regular transaction.  Select <em>Pre-Order</em> if you are taking pre-orders for this product and will charge all orders on a certain date in the future.', 'memberdeck'); ?></p>
-  							<p><strong><?php _e('License Type', 'memberdeck'); ?></strong>: <?php _e('<em>Standard</em> Products expire in one year by default and can be set to any number of days, months, years. <em>Recurring</em> Products automatically renew after defined set renewal period expires (unless cancelled). <em>Lifetime</em> Products never expire. <em>Donation</em> products offer pledge what you want with a minimum donation.', 'memberdeck'); ?></p>
+  							<p><strong><?php _e('Product Types', 'memberdeck'); ?></strong>: <?php _e('<em>Standard</em> Products expire in one year, <em>Recurring</em> Products automatically renew after defined set renewal period expires (unless cancelled). <em>Lifetime</em> Products never expire. <em>Donation</em> products offer pledge what you want with a minimum donation.', 'memberdeck'); ?></p>
   							<p><strong><?php _e('Payment Limits', 'memberdeck'); ?></strong>: <?php _e('Stripe subscriptions can be set to cancel <em>automatically</em> after a set number of payments. Simply check to enable a <em>limit</em>, and enter the number of payments allowed.', 'memberdeck'); ?></p>
   							<p><?php _e('If you have selected <em>Recurring</em> you will need to select a recurring length, and give it a Stripe Plan Name.', 'memberdeck'); ?></p>
   							<p><strong><?php _e('Renewals', 'memberdeck'); ?></strong>: <?php _e('Enable renewals on standard products in order to allow customers to keep their licenses active so that they will not lose access once the one year term expires.', 'memberdeck'); ?></p>
@@ -86,17 +86,6 @@
 											<option value="lifetime"><?php _e('Lifetime', 'memberdeck'); ?></option>
 										</select>
 									</div>
-									<div id="license-input" class="form-input" data-meta-key="exp_data" style="display:none;">
-										<label for="level-term"><?php _e('License Term', 'memberdeck'); ?></label>
-										<select name="level-term" id="level-term" class="exp_data" data-key-label="term">
-											<option value="days"><?php _e('Day(s)', 'memberdeck'); ?></option>
-											<option value="weeks"><?php _e('Week(s)', 'memberdeck'); ?></option>
-											<option value="months"><?php _e('Month(s)', 'memberdeck'); ?></option>
-											<option value="years"><?php _e('Year(s)', 'memberdeck'); ?></option>
-										</select>
-										<label for="term-count"><?php _e('Term Count', 'memberdeck'); ?></label>
-										<input type="number" name="term-count" id="term-count" class="exp_data" value="" data-key-label="count"/>
-									</div>
 									<div id="recurring-input" class="form-input" style="display: none;">
 										<label for="recurring-type"><?php _e('Recurring Type', 'memberdeck'); ?></label>
 										<select name="recurring-type" id="recurring-type">
@@ -104,35 +93,22 @@
 											<option value="monthly"><?php _e('Monthly', 'memberdeck'); ?></option>
 											<option value="annual"><?php _e('Annual', 'memberdeck'); ?></option>
 										</select>
-										<div <?php echo (!$es ? 'style="display: none"' : ''); ?>>
-											<label for="plan"><?php _e('Stripe Plan Name', 'memberdeck'); ?></label>
-											<input type="text" name="plan" id="plan" value=""/>
-										</div>
-										<div class="inline">
-											<input type="checkbox" name="trial_period" id="trial_period" value="1"/>
-											<label for="trial_period"><?php _e('Offer Free Trial', 'memberdeck'); ?></label>
-										</div>
-										<div>
-											<label for="trial_length"><?php _e('Trial Length', 'memberdeck'); ?></label>
-											<input type="number" name="trial_length" id="trial_length" value="" />
-										</div>
-										<div>
-											<label for="trial_type"><?php _e('Trial Type', 'memberdeck'); ?></label>
-											<select name="trial_type" id="trial_type">
-												<option value="day"><?php _e('Day(s)', 'memberdeck'); ?></option>
-												<option value="weekly"><?php _e('Week(s)', 'memberdeck'); ?></option>
-												<option value="monthly"><?php _e('Month(s)', 'memberdeck'); ?></option>
-												<option value="annual"><?php _e('Year(s)', 'memberdeck'); ?></option>
-											</select>
-										</div>
+										<?php if (!$es) {
+											echo '<div style="display: none">';
+										} ?>
+										<br/>
+										<label for="plan"><?php _e('Stripe Plan Name', 'memberdeck'); ?><br/><?php _e('*can only be used once', 'memberdeck'); ?></label>
+										<input type="text" name="plan" id="plan" value=""/>
+										<?php if (!$es) {
+											echo '</div>';
+										} ?>
+										<br/>
 										<div class="inline">
 											<input type="checkbox" name="limit_term" id="limit_term" value="1"/>
 											<label for="limit_term"><?php _e('Limit Number of Payments', 'memberdeck'); ?></label>
 										</div>
-										<div>
-											<label for="term_length"><?php _e('Number of Payments', 'memberdeck'); ?></label>
-											<input type="text" name="term_length" id="term_length" value="" />
-										</div>
+										<label for="term_length"><?php _e('Number of Payments', 'memberdeck'); ?></label>
+										<input type="text" name="term_length" id="term_length" value="" />
 									</div>
 									<?php if (!is_idc_free()) { ?>
 									<div class="form-input">
@@ -567,6 +543,7 @@
 								<div class="form-input" <?php echo (isset($enable_default_product) && !$enable_default_product ? 'style="display: none;"' : ''); ?>>
 									<br/>
 									<select name="default_product" id="default_product" data-selected="<?php echo (isset($default_product) ? $default_product : ''); ?>">
+										<option>-- <?php _e('Choose Product', 'memberdeck'); ?> --</option>
 									</select>
 								</div>
 								<?php if (function_exists('is_id_pro') && is_id_pro()) { ?>

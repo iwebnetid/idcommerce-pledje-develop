@@ -66,9 +66,7 @@ function validate_sc_params($user_id) {
 	$params = get_sc_params($user_id);
 	$account = 0;
 	if (!empty($params)) {
-		if (!class_exists('Stripe')) {
-			require_once 'lib/stripe-php-4.2.0/init.php';
-		}
+		require_once 'lib/stripe-php-4.2.0/init.php';
 		$api_key = $params->access_token;
 		try {
 			\Stripe\Stripe::setApiKey($api_key);
@@ -116,9 +114,7 @@ function md_sc_creds($user_id) {
 	global $stripe_api_version;
 	$params = get_sc_params($user_id);
 	if (isset($params->id) && $params->id > 0) {
-		if (!class_exists('Stripe')) {
-			require_once 'lib/stripe-php-4.2.0/init.php';
-		}
+		require_once 'lib/stripe-php-4.2.0/init.php';
 		$api_key = $params->access_token;
 		//echo $api_key;
 		try {
@@ -266,6 +262,10 @@ function md_sc_return_handler() {
 		}
 	}
 }
+
+
+
+
 
 function idsc_revoke_creds() {
 	if (isset($_POST['user_id'])) {

@@ -25,7 +25,7 @@ function authorizenet_customer_id_ajax($user_id) {
 	return ID_Member::authnet_customer_id_ajax($user_id);
 }
 
-function idc_stripe_sk($product_id = null) {
+function stripe_sk($product_id = null) {
 	$settings = get_option('memberdeck_gateways');
 	if (!empty($settings)) {
 		if (is_array($settings)) {
@@ -36,31 +36,20 @@ function idc_stripe_sk($product_id = null) {
 			else {
 				$sk = $settings['sk'];
 			}
+			/*$esc = $settings['esc'];
+			if ($esc == '1' && !empty($product_id)) {
+				$check_claim = get_option('md_level_'.$product_id.'_owner');
+				if (!empty($check_claim)) {
+					$md_sc_creds = get_sc_params($check_claim);
+					if (!empty($md_sc_creds)) {
+						//echo 'using sc';
+						$sk = $md_sc_creds->access_token;
+					}
+				}
+			}*/
 		}
 	}
 	return (!empty($sk) ? $sk : null);
-}
-
-function idc_stripe_currency() {
-	$gateways = get_option('memberdeck_gateways');
-	$stripe_currency = 'USD';
-	if (!empty($gateways) && is_array($gateways)) {
-		$stripe_currency = $gateways['stripe_currency'];
-	}
-	return $stripe_currency;
-}
-
-function idc_stripe_recurring_types() {
-	$recurring_types = array(
-		"weekly" => "week",
-		"monthly" => "month",
-		"annually" => "year"
-	);
-	return $recurring_types;
-}
-
-function idc_stripe_standardize_plan_name($text) {
-	return strtolower(preg_replace('/[\s:]+/', '-', str_replace(html_entity_decode("&nbsp;"), ' ', $text)));
 }
 
 function md_get_did() {
@@ -69,7 +58,7 @@ function md_get_did() {
 	$dash = maybe_unserialize($dash);
 	if (!empty($dash)) {
 		if (isset($dash['durl'])) {
-			$d_page = absint($dash['durl']);
+			$d_page = $dash['durl'];
 		}
 	}
 	return $d_page;
@@ -137,24 +126,6 @@ function md_https() {
 	return $https;
 }
 
-function idc_currency_to_symbol($currency_code) {
-	// Converting shortcode to symbol and return, but first getting the array for code to symbol from file
-	$currency_json = json_decode(file_get_contents(IDC_PATH . 'inc/currencies.json' ));
-	$currencies_array = $currency_json->currency;
-	// since currency array is for paypal only, we add some additional
-	$btc = new stdClass();
-	$btc->code = 'BTC';
-	$btc->symbol = '&#3647;';
-	$currencies_array[] = $btc;
-	// now that we have the array, we loop through it and compare the code and return the required symbol if code is matched
-	foreach ($currencies_array as $currency) {
-		if ($currency->code == $currency_code) {
-			return $currency->symbol;
-		}
-	}
-	return '$';
-}
-
 add_action('wp', 'md_force_https', 1);
 
 function md_force_https() {
@@ -184,7 +155,7 @@ function idc_init_checks() {
 function instant_checkout() {
 	global $first_data;
 	$instant_checkout = false;
-	if (is_user_logged_in()) {
+	if(is_user_logged_in()) {
 		if (is_multisite()) {
 			require (ABSPATH . WPINC . '/pluggable.php');
 		}
@@ -214,13 +185,18 @@ function instant_checkout() {
 					}
 				}
 			}
-			else if (isset($settings['eauthnet']) && $settings['eauthnet'] == '1') {
+			else if (isset($settings['eauthnet']) && $settings['eauthnet'] == '1')
+				{
+					//echo "hello";
+					//die();
 				$authnet_customer_ids = authnet_customer_id();
 				if (!empty($authnet_customer_ids)) {
-					$authorizenet_payment_profile_id = $authnet_customer_ids['authorizenet_payment_profile_id'];
-					$authorizenet_profile_id = $authnet_customer_ids['authorizenet_profile_id'];
+					// echo 'hi';
+				 $authorizenet_payment_profile_id = $authnet_customer_ids['authorizenet_payment_profile_id'];
+					 $authorizenet_profile_id = $authnet_customer_ids['authorizenet_profile_id'];
 					if (!empty($authorizenet_profile_id) && !empty($authorizenet_payment_profile_id)) {
-						$instant_checkout = get_user_meta($user_id, 'instant_checkout', true);
+						//echo $user_id;
+						 $instant_checkout = get_user_meta($user_id, 'instant_checkout', true);
 					}
 				}
 			}
@@ -651,12 +627,6 @@ function md_shipping_info() {
 	$user_id = $current_user->ID;
 
 	$shipping_info = get_user_meta($user_id, 'md_shipping_info', true);
-
-	$countries = file_get_contents(IDC_PATH . '/inc/countries_list.json');
-	if (!empty($countries)) {
-		$countries = json_decode($countries);
-	}
-
 	if (isset($_POST['edit-profile-submit'])) {
 		$current_user = wp_get_current_user();
 		$user_id = $current_user->ID;
@@ -736,14 +706,13 @@ function idc_create_stripe_plan($product_id, $user_id, $args = null) {
 
 		$level = ID_Member_Level::get_level($product_id);
 		// Setting default arguments
-		$args['price'] = apply_filters('idc_stripe_plan_creation_price', $level->level_price, $product_id);
-		$args['interval'] = apply_filters('idc_stripe_plan_creation_interval', $recurring_types[$level->recurring_type], $product_id);
-		$args['name'] = apply_filters('idc_stripe_plan_creation_name', $level->level_name, $product_id);
-		$args['currency'] = apply_filters('idc_stripe_plan_creation_currency', $stripe_currency, $product_id);
+		$args['price'] = $level->level_price;
+		$args['interval'] = $recurring_types[$level->recurring_type];
+		$args['name'] = $level->level_name;
+		$args['currency'] = $stripe_currency;
 		$level->level_name = str_replace(html_entity_decode("&nbsp;"), '-', $level->level_name);
-		$args['id'] = apply_filters('idc_stripe_plan_creation_id', strtolower(str_replace('/[\s:]+/', '-', $level->level_name)), $product_id);
+		$args['id'] = strtolower(str_replace('/[\s:]+/', '-', $level->level_name));
 	}
-	$args = apply_filters('idc_stripe_plan_creation_args', $args);
 
 	// validating Stripe connect ids
 	$sc_validation = true;
@@ -769,9 +738,7 @@ function idc_create_stripe_plan($product_id, $user_id, $args = null) {
 	}
 	
 	if ($sc_validation && !empty($sk)) {
-		if (!class_exists('Stripe')) {
-			require_once 'lib/stripe-php-4.2.0/init.php';
-		}
+		require_once 'lib/stripe-php-4.2.0/init.php';
 		$api_key = $sk;
 		try {
 			\Stripe\Stripe::setApiVersion($stripe_api_version);
@@ -811,21 +778,10 @@ function idc_create_stripe_plan($product_id, $user_id, $args = null) {
  */
 function idc_retrieve_stripe_plan($plan_id, $user_id) {
 	global $stripe_api_version;
-	$gateways = maybe_unserialize(get_option('memberdeck_gateways'));
-	if (empty($gateways)) {
-		return;
-	}
-	if ($gateways['esc']) {
-		$params = get_sc_params($user_id);
-		$api_key = (isset($params->access_token) ? $params->access_token : null);
-	}
-	else {
-		$api_key = ($gateways['test'] ? $gateways['tsk'] : $gateways['sk']);
-	}
-	if (!empty($api_key)) {
-		if (!class_exists('Stripe')) {
-			require_once 'lib/stripe-php-4.2.0/init.php';
-		}
+	$params = get_sc_params($user_id);
+	if (!empty($params)) {
+		require_once 'lib/stripe-php-4.2.0/init.php';
+		$api_key = $params->access_token;
 		try {
 			\Stripe\Stripe::setApiKey($api_key);
 			\Stripe\Stripe::setApiVersion($stripe_api_version);
@@ -1027,23 +983,16 @@ function idc_user_allowed_term_access($post_id, $user_id, $tag_or_cat, $md_user_
 function idc_in_protected_category($post_id) {
 	// Getting post categories
 	$post_cats = idf_get_object('idc_in_protected_category-'.$post_id);
-	if (!isset($post_cats)) {
+	if (empty($post_cats)) {
 		$post_cats = wp_get_post_categories(!empty($post_id) ? $post_id : null);
 		do_action('idf_cache_object', 'idc_in_protected_category-'.$post_id, $post_cats);
 	}
 	$project_cats = idf_get_object('idc_in_protected_category-project_category-'.$post_id);
-	if (!isset($project_cats)) {
+	if (empty($project_cats)) {
 		$project_cats = wp_get_post_terms(!empty($post_id) ? $post_id : null, 'project_category', array( 'fields' => 'ids' ) );
 		do_action('idf_cache_object', 'idc_in_protected_category-project_category-'.$post_id, $project_cats);
 	}
 	if (! is_wp_error($project_cats)) {
-		// #devnote simplify this
-		if (empty($project_cats)) {
-			$project_cats = array();
-		}
-		if (empty($post_cats)) {
-			$post_cats = array();
-		}
 		$post_cats = array_merge($post_cats, $project_cats);
 	}
 
@@ -1068,7 +1017,7 @@ function idc_in_protected_category($post_id) {
 function idc_in_protected_tag($post_id) {
 	// Getting post tags
 	$post_tags = idf_get_object('idc_in_protected_tag-'.$post_id);
-	if (!isset($post_tags)) {
+	if (empty($post_tags)) {
 		$post_tags = wp_get_post_tags(!empty($post_id) ? $post_id : null);
 		do_action('idf_cache_object', 'idc_in_protected_tag-'.$post_id, $post_tags);
 	}
@@ -1096,23 +1045,25 @@ function idmember_purchase_receipt($user_id, $price, $level_id, $source, $new_or
 		$coemail = $settings['coemail'];
 	}
 	else {
-		$coname = apply_filters('idc_company_name', '');
+		$coname = '';
 		$coemail = get_option('admin_email', null);
 	}
 	$price = apply_filters('idc_order_price', $price, $new_order);
+	/*$currency = 'USD';
+	$symbol = '$';
+	if ($source == 'stripe') {
+		$settings = get_option('memberdeck_gateways');
+		if (!empty($settings)) {
+			if (is_array($settings)) {
+				$currency = $settings['stripe_currency'];
+				$symbol = md_currency_symbol($stripe_currency);
+			}
+		}
+	}*/
 	$user = get_userdata($user_id);
-	if (!empty($user)) {
-		$email = $user->user_email;
-		$fname = idc_text_format($user->first_name);
-		$lname = idc_text_format($user->last_name);
-	}
-	else {
-		$user = (object) ID_Member_Order::get_order_meta($new_order, 'guest_data', true);
-		// #dev (should we re-map the email key so it matches WP default?)
-		$email = $user->email;
-		$fname = idc_text_format($user->first_name);
-		$lname = idc_text_format($user->last_name);
-	}
+	$email = $user->user_email;
+	$fname = $user->first_name;
+	$lname = $user->last_name;
 
 	/*
 	** Check CRM Settings
@@ -1131,7 +1082,7 @@ function idmember_purchase_receipt($user_id, $price, $level_id, $source, $new_or
 	}
 
 	$level = ID_Member_Level::get_level($level_id);
-	$level_name = idc_text_format($level->level_name);
+	$level_name = $level->level_name;
 
 	$order = new ID_Member_Order($new_order);
 	$the_order = $order->get_order();
@@ -1153,9 +1104,9 @@ function idmember_purchase_receipt($user_id, $price, $level_id, $source, $new_or
 		$headers .= "MIME-Version: 1.0\n";
 		$headers .= "Content-Type: text/html; charset=UTF-8\n";
 		$message = '<html><body>';
-		$text = idc_text_format(get_option('purchase_receipt'));
+		$text = stripslashes(get_option('purchase_receipt'));
 		if (empty($text)) {
-			$text = idc_text_format(get_option('purchase_receipt_default'));
+			$text = stripslashes(get_option('purchase_receipt_default'));
 		}
 		if (empty($text)) {
 			$message .= '<div style="padding:10px;background-color:#f2f2f2;">
@@ -1300,7 +1251,7 @@ function idmember_purchase_receipt($user_id, $price, $level_id, $source, $new_or
 		}
 		else {
 			//echo $email."<br>".$subject."<br>".$message;
-			wp_mail($email, $subject, $message, $headers);
+			mail($email, $subject, $message, $headers);
 		}
 	}
 }
@@ -1334,8 +1285,8 @@ function idmember_creator_receipt($user_id, $price, $level_id, $source, $new_ord
 					if ($author_id > 0) {
 						$user = get_user_by('id', $author_id);
 						$email = $user->user_email;
-						$fname = idc_text_format($user->first_name);
-						$lname = idc_text_format($user->last_name);
+						$fname = $user->first_name;
+						$lname = $user->last_name;
 						if (!empty($user)) {
 							$settings = get_option('md_receipt_settings');
 							if (!empty($settings)) {
@@ -1344,7 +1295,7 @@ function idmember_creator_receipt($user_id, $price, $level_id, $source, $new_ord
 								$coemail = $settings['coemail'];
 							}
 							else {
-								$coname = apply_filters('idc_company_name', '');
+								$coname = '';
 								$coemail = get_option('admin_email', null);
 							}
 							$price = apply_filters('idc_order_price', $price, $new_order);
@@ -1366,7 +1317,7 @@ function idmember_creator_receipt($user_id, $price, $level_id, $source, $new_ord
 							}
 
 							$level = ID_Member_Level::get_level($level_id);
-							$level_name = idc_text_format($level->level_name);
+							$level_name = $level->level_name;
 
 							$order = new ID_Member_Order($new_order);
 							$the_order = $order->get_order();
@@ -1395,9 +1346,9 @@ function idmember_creator_receipt($user_id, $price, $level_id, $source, $new_ord
 								$headers .= "MIME-Version: 1.0\n";
 								$headers .= "Content-Type: text/html; charset=UTF-8\n";
 								$message = '<html><body>';
-								$text = idc_text_format(get_option('creator_receipt'));
+								$text = stripslashes(get_option('creator_receipt'));
 								if (empty($text)) {
-									$text = idc_text_format(get_option('creator_receipt_default'));
+									$text = stripslashes(get_option('creator_receipt_default'));
 								}
 								
 								$merge_swap = array(
@@ -1495,7 +1446,7 @@ function idmember_creator_receipt($user_id, $price, $level_id, $source, $new_ord
 								}
 								else {
 									//echo $email."<br>".$subject."<br>".$message;
-									wp_mail($email, $subject, $message, $headers);
+									mail($email, $subject, $message, $headers);
 								}
 							}
 						}
@@ -1510,10 +1461,15 @@ if (!is_idc_free()) {
 	//add_action('idmember_receipt', 'idmember_creator_receipt', 1, 6);
 }
 
-function memberdeck_preauth_receipt($user_id, $price, $level_id, $source) {
+function memberdeck_preauth_receipt($user_id, $price, $level_id, $source,$new_order,$product_id_camp,$paymentnature,$no_of_month_plan,$plan_start_date) {
 	error_reporting(0);
-	global $crowdfunding;
+	global $wpdb,$crowdfunding;
 	$settings = get_option('md_receipt_settings');
+	//print_r($level_id);
+	$symbol = $wpdb->get_row("select * from wp_memberdeck_orders where id=$new_order");
+	$currency_symbol = $symbol->currency_symbol;
+	$currency = strtoupper($symbol->currency);
+	
 	if (!empty($settings)) {
 		if (!is_array($settings)) {
 			$settings = unserialize($settings);
@@ -1522,9 +1478,10 @@ function memberdeck_preauth_receipt($user_id, $price, $level_id, $source) {
 		$coemail = $settings['coemail'];
 	}
 	else {
-		$coname = apply_filters('idc_company_name', '');
+		$coname = '';
 		$coemail = get_option('admin_email', null);
 	}
+	
 	/*$currency = 'USD';
 	$symbol = '$';
 	if ($source == 'stripe') {
@@ -1536,11 +1493,14 @@ function memberdeck_preauth_receipt($user_id, $price, $level_id, $source) {
 			}
 		}
 	}*/
-	$price = apply_filters('idc_order_price', $price, $new_order);
+	
+	//echo $new_order;
+	 //$price = apply_filters('idc_order_price', $price, $new_order);
+	 
 	$user = get_userdata($user_id);
 	$email = $user->user_email;
-	$fname = idc_text_format($user->first_name);
-	$lname = idc_text_format($user->last_name);
+	$fname = $user->first_name;
+	$lname = $user->last_name;
 
 	/*
 	** Check CRM Settings
@@ -1561,20 +1521,34 @@ function memberdeck_preauth_receipt($user_id, $price, $level_id, $source) {
 	if (!empty($credit_data)) {
 		$credit_value = $credit_data->credit_count;
 	}
-	$level_name = idc_text_format($level->level_name);
+	$level_name = $level->level_name;
 
 	$cf_level = false;
 	if ($crowdfunding) {
 		$cf_assignments = get_assignments_by_level($level_id);
+		//print_r($cf_assignments);
 		if (!empty($cf_assignments)) {
 			$project_id = $cf_assignments[0]->project_id;
-			$project = new ID_Project($project_id);
+			$project = new ID_Project($product_id_camp);
 			$the_project = $project->the_project();
 			$post_id = $project->get_project_postid();
 			$end = get_post_meta($post_id, 'ign_fund_end', true);
+			$title = get_the_title($post_id);
+			$url_social = get_permalink($post_id);
 			$cf_level = true;
 		}
 	}
+	
+	$main_currency = get_post_meta($post_id,'campaign_currency',true);
+	$currency_symbol_arrm = explode("(",$main_currency);
+	 if($currency_symbol_arrm[0] != $symbol->currency)
+	{
+	   $price = round(convertCurrency($price,$currency_symbol_arrm[0],$symbol->currency));
+	}
+	
+	$per_month_amt =  round($price/$no_of_month_plan,2);
+	 
+	$price = $currency_symbol.''.$price.' '.$currency;
 
 	if (!empty($coemail)) {
 		/* 
@@ -1582,15 +1556,15 @@ function memberdeck_preauth_receipt($user_id, $price, $level_id, $source) {
 		*/
 
 		// Sending email to customer on the completion of order
-		$subject = $level_name.' '.__('Pre-Order Confirmation', 'memberdeck');
+		$subject = __('Donation Confirmation', 'memberdeck');
 		$headers = 'From: '.$coname.' <'.$coemail.'>' . "\n";
 		$headers .= 'Reply-To: ' . $coemail ."\n";
 		$headers .= "MIME-Version: 1.0\n";
 		$headers .= "Content-Type: text/html; charset=UTF-8\n";
 		$message = '<html><body>';
-		$text = idc_text_format(get_option('preorder_receipt'));
+		$text = stripslashes(get_option('preorder_receipt'));
 		if (empty($text)) {
-			$text = idc_text_format(get_option('preorder_receipt_default'));
+			$text = stripslashes(get_option('preorder_receipt_default'));
 		}
 		if (empty($text)) {
 			$message .= '<div style="padding:10px;background-color:#f2f2f2;">
@@ -1608,7 +1582,7 @@ function memberdeck_preauth_receipt($user_id, $price, $level_id, $source) {
 		    if ($cf_level) {
 		    	$message .=			__('If funding is successful, this charge will process on ', 'memberdeck').$end.'<br/><br/>';
 		    }
-		    $message .=				'<div style="border: 1px solid #333333; width: 500px;">
+		    $message .=	'<div style="border: 1px solid #333333; width: 500px;">
 		    							<table width="500" border="0" cellspacing="0" cellpadding="5">
 		          							<tr bgcolor="#333333" style="color: white">
 						                        <td width="100">'.__('DATE', 'memberdeck').'</td>
@@ -1642,6 +1616,9 @@ function memberdeck_preauth_receipt($user_id, $price, $level_id, $source) {
 				        </div>';
 		}
 		else {
+			$fname= ucfirst($fname);
+			$lname= ucfirst($lname);
+			
 			$merge_swap = array(
 				array(
 					'tag' => '{{COMPANY_NAME}}',
@@ -1675,9 +1652,75 @@ function memberdeck_preauth_receipt($user_id, $price, $level_id, $source) {
 					'tag' => '{{END_DATE}}',
 					'swap' => $end
 					),
+				array(
+					'tag' => '{{title}}',
+					'swap' => $title
+					),
+				array(
+					'tag' => '{{current_url}}',
+					'swap' => $url_social
+					),
+				array(
+					'tag' => '{{no_of_month_plan}}',
+					'swap' => $no_of_month_plan
+					),
+				array(
+					'tag' => '{{left_month_plan}}',
+					'swap' => $no_of_month_plan-1
+					),
+				array(
+					'tag' => '{{plan_start_date}}',
+					'swap' => $plan_start_date
+					),
+				array(
+					'tag' => '{{per_month_amount}}',
+					'swap' => $currency_symbol.''.$per_month_amt.' '.$currency
+					),
 				);
+				
+				
+			$text = "<div class='thanku_card' style='margin: 0 auto; max-width: 90%; text-align: center;'>
+				 <div class='logo' style='padding: 25px 0px;'><a href='#'><img src='https://pledje.com/wp-content/uploads/2017/05/logo.png' alt='Pledje' /></a></div>
+				<div class='handshake_thanku' style='background: #68bd45; padding: 20px 0px;'>
+				<h2 style='margin: 0px; color: #fff;'>THANK YOU,</h2>
+				<h5 style='margin: 0px 0px 20px 0px; color: #fff;'>YOU ARE AWESOME</h5>
+				<img src='https://pledje.com/wp-content/uploads/2017/05/hand-shake.png' alt='Pledje' />
+
+				</div>
+				<div class='thanku_content' style='font-size: 20px; margin: 20px auto; max-width: 450px; text-align: left;'>
+
+				Dear {{NAME}}, 
+				
+				  Thank you for your generous donation & support of {{title}}. However, the campaign is not over yet.
+				  
+				  Following is a summary of your pledge toward's the cause which will be charged upon completion of the campaign. 
+				  
+                  From all of us at Pledje & {{title}} THANK YOU!
+				  
+				";
+				if($paymentnature == 'Monthly Payment' && $no_of_month_plan>1){
+					$text .= '
+					Donation : <span style="color:#68bd45;">{{no_of_month_plan}} Monthly Installments</span>
+					Total Amount of Donation : <span style="color:#68bd45;">{{AMOUNT}}</span>
+					Number of Months Remaining : <span style="color:#68bd45;">{{left_month_plan}} </span>
+					Amount of Each Monthly Donation : <span style="color:#68bd45;">{{per_month_amount}} </span>
+					Amount Paid So Far : <span style="color:#68bd45;"> {{per_month_amount}} </span>
+					Start Date : <span style="color:#68bd45;"> {{plan_start_date}} </span>
+					';
+					
+				}
+				else {
+				$text .= '				
+					  Total Amount of Donation : <span style="color:#68bd45;"> {{AMOUNT}} </span>					
+					  Date : <span style="color:#68bd45;"> {{plan_start_date}} </span>
+					';
+				}
+
+				$text .= '</div><div class="thanku-social-icon" style="background: #68bd45; padding: 20px 0px; float: left; width: 100%;"><a style="padding:0; width:26px;display:inline-block;" href="https://www.facebook.com/sharer/sharer.php?u={{current_url}}"><img class="alignnone" src="https://pledje.com/wp-content/uploads/2017/05/facebook.png" alt="Facebook" />
+				</a><a style="padding:0; width:26px; display:inline-block;" href="https://twitter.com/intent/tweet?text={{title}}&amp;url={{current_url}}&amp;counturl={{current_url}}"><img class="alignnone" src="https://pledje.com/wp-content/uploads/2017/05/twitter.png" alt="Twitter" /></a></div>';
+													
 			foreach ($merge_swap as $swap) {
-				$text = str_replace($swap['tag'], $swap['swap'], $text);
+				$text = str_replace($swap['tag'], $swap['swap'], stripslashes($text));
 			}
 			$message .= wpautop($text);
 		}
@@ -1739,12 +1782,12 @@ function memberdeck_preauth_receipt($user_id, $price, $level_id, $source) {
 		}
 		else {
 			//echo $email."<br>".$subject."<br>".$message;
-			wp_mail($email, $subject, $message, $headers);
+			mail($email, $subject, $message, $headers);
 		}
 	}
 }
 
-add_action('memberdeck_preauth_receipt', 'memberdeck_preauth_receipt', 1, 4);
+add_action('memberdeck_preauth_receipt', 'memberdeck_preauth_receipt', 1, 9);
 
 function idmember_registration_email($user_id, $reg_key, $order_id) {
 	$settings = get_option('md_receipt_settings');
@@ -1756,13 +1799,13 @@ function idmember_registration_email($user_id, $reg_key, $order_id) {
 		$coemail = $settings['coemail'];
 	}
 	else {
-		$coname = apply_filters('idc_company_name', '');
+		$coname = '';
 		$coemail = get_option('admin_email', null);
 	}
 	$user = get_userdata($user_id);
 	$email = $user->user_email;
-	$fname = idc_text_format($user->first_name);
-	$lname = idc_text_format($user->last_name);
+	$fname = $user->first_name;
+	$lname = $user->last_name;
 
 	/*
 	** Check CRM Settings
@@ -1788,7 +1831,7 @@ function idmember_registration_email($user_id, $reg_key, $order_id) {
 	if (!empty($credit_data)) {
 		$credit_value = $credit_data->credit_count;
 	}
-	$level_name = idc_text_format(isset($level) ? $level->level_name : '');
+	$level_name = (isset($level) ? $level->level_name : '');
 
 	if (!empty($coemail)) {
 		/* 
@@ -1802,9 +1845,9 @@ function idmember_registration_email($user_id, $reg_key, $order_id) {
 		$headers .= "MIME-Version: 1.0\n";
 		$headers .= "Content-Type: text/html; charset=UTF-8\n";
 		$message = '<html><body>';
-		$text = idc_text_format(get_option('registration_email'));
+		$text = stripslashes(get_option('registration_email'));
 		if (empty($text)) {
-			$text = idc_text_format(get_option('registration_email_default'));
+			$text = stripslashes(get_option('registration_email_default'));
 		}
 		if (empty($text)) {
 			$message .= '<div style="padding:10px;background-color:#f2f2f2;">
@@ -1929,7 +1972,7 @@ function idmember_registration_email($user_id, $reg_key, $order_id) {
 		}
 		else {
 			//echo $email."<br>".$subject."<br>".$message;
-			wp_mail($email, $subject, $message, $headers);
+			mail($email, $subject, $message, $headers);
 		}
 	}
 }
@@ -1946,11 +1989,9 @@ function md_send_mail($email, $headers = '', $subject, $message) {
 		$coemail = $settings['coemail'];
 	}
 	else {
-		$coname = apply_filters('idc_company_name', '');
+		$coname = '';
 		$coemail = get_option('admin_email', null);
 	}
-
-	$subject = apply_filters('idc_text_format', $subject);
 
 	/*
 	** Check CRM Settings
@@ -1998,7 +2039,7 @@ function md_send_mail($email, $headers = '', $subject, $message) {
 					'to' => array(
 						array(
 							'email' => $email,
-							'name' => (isset($fname) && isset($lname) ? idc_text_format($fname.' '.$lname) : ''),
+							'name' => (isset($fname) && isset($lname) ? $fname.' '.$lname : ''),
 							'type' => 'to'
 							)
 						),
@@ -2029,7 +2070,7 @@ function md_send_mail($email, $headers = '', $subject, $message) {
 				$headers .= "MIME-Version: 1.0\n";
 				$headers .= "Content-Type: text/html; charset=ISO-8859-1\n";
 			}
-			wp_mail($email, $subject, $message, $headers);
+			mail($email, $subject, $message, $headers);
 		}
 	}
 }
@@ -2046,15 +2087,15 @@ function idc_welcome_email($user_id, $email) {
 		$coemail = $settings['coemail'];
 	}
 	else {
-		$coname = apply_filters('idc_company_name', '');
+		$coname = '';
 		$coemail = get_option('admin_email', null);
 	}
 
 	if (!empty($user_id)) {
 		$user = get_user_by('id', $user_id);
 		if (isset($user)) {
-			$fname = idc_text_format($user->user_firstname);
-			$lname = idc_text_format($user->user_lastname);
+			$fname = $user->user_firstname;
+			$lname = $user->user_lastname;
 		}
 	}
 
@@ -2062,9 +2103,9 @@ function idc_welcome_email($user_id, $email) {
 	$subject = $site_name.' '.__('Registration Confirmation', 'memberdeck');
 	$durl = md_get_durl();
 	$message = '<html><body>';
-	$text = idc_text_format(get_option('welcome_email'));
+	$text = stripslashes(get_option('welcome_email'));
 	if (empty($text)) {
-		$text = idc_text_format(get_option('welcome_email_default'));
+		$text = stripslashes(get_option('welcome_email_default'));
 	}
 	if (empty($text)) {
 		$message .= '<div style="padding:10px;background-color:#f2f2f2;">
@@ -2310,13 +2351,23 @@ function memberdeck_dashboard_widgets() {
 add_action('memberdeck_stripe_success', 'memberdeck_auto_login', 20, 2);
 add_action('idc_register_success', 'memberdeck_auto_login', 20, 2);
 
-function memberdeck_auto_login($user_id, $email) {
+function memberdeck_auto_login($user_id, $email) 
+{
 	$user = get_user_by('id', $user_id);
-	if (!empty($user)) {
-		$login = $user->user_login;
-		wp_set_auth_cookie( $user_id, true, is_ssl() );
-		do_action('wp_login', $login, $user);
-	}
+    $key = array_search('prospect_idd', array_column($_REQUEST['Fields'], 'name'));
+	 if (!empty($user)) 
+	 {
+		 if($key!==false && $_REQUEST['Fields'][$key]['value']!='' && $_REQUEST['Fields'][$key]['value']!=0)
+		  {
+		   return;
+		  }
+		  else
+		  {
+		   $login = $user->user_login;
+		   wp_set_auth_cookie( $user_id, true, is_ssl() );
+		   do_action('wp_login', $login, $user);
+		  }
+	 }
 }
 
 use Aws\S3\S3Client;
@@ -2538,6 +2589,37 @@ function memberdeck_exp_checkondash($user_id) {
 	if (!empty($level_array)) {
 		ID_Member::expire_level($user_id, $level_array);
 	}
+	/*$user_levels = ID_Member::user_levels($user_id);
+	if (!empty($user_levels)) {
+		$level_array = unserialize($user_levels->access_level);
+	}
+	if (isset($level_array)) {
+		//print_r($level_array)."\n";
+		$i = 0;
+		foreach ($level_array as $level) {
+			$order = new ID_Member_Order(null, $user_id, $level);
+			//print_r($order);
+			$latest = $order->get_last_order();
+				//print_r($latest)."\n";
+			// make sure there is an order and it isn't for a free level
+			if (isset($latest) && $latest->transaction_id !== 'free') {
+				// a non-expiring level has a null value for e_date
+				if (isset($latest->e_date) && $latest->e_date !== '0000-00-00 00:00:00') {
+					$e_date = $latest->e_date;
+					$datestring = strtotime($e_date);
+					$now = time();
+					if ($now > $datestring) {
+						unset($level_array[$i]);
+						ID_Member_Order::cancel_subscription($latest->id);
+					}
+				}
+			}
+			$i++;
+		}
+		//print_r($level_array)."\n";
+		//exit();
+		ID_Member::expire_level($user_id, $level_array);
+	}*/
 }
 
 add_action('wp_login', 'memberdeck_license_gen_check', 1, 2);
@@ -2586,56 +2668,10 @@ function memberdeck_license_gen_check($user_login, $user) {
 	//exit;
 }
 
-add_action('init', 'md_validate_account');
-
-function md_validate_account() {
-	if (isset($_GET['action']) && $_GET['action'] == 'md_validate_account') {
-		$valid_level = '1';
-		do_action('md_validate_account', $_REQUEST, $_SERVER);
-		if (empty($_GET['id_account']) || empty($_GET['download_list'])) {
-			print_r(json_encode($valid_level));
-			exit;
-		}
-		$id_account = sanitize_text_field($_GET['id_account']);
-		$download_list = idf_sanitize_array($_GET['download_list']);
-		$user = get_user_by('login', $id_account);
-		if (empty($user)) {
-			print_r(json_encode($valid_level));
-			exit;
-		}
-		$member = new ID_Member($user->ID);
-		$membership = $member->get_membership();
-		if (empty($membership)) {
-			exit;
-		}
-		foreach ($download_list as $download_id) {
-			$download = new ID_Member_Download($download_id);
-			$the_download = $download->get_download();
-			$download_levels = maybe_unserialize($the_download->download_levels);
-			if (empty($download_levels)) {
-				continue;
-			}
-			foreach ($membership as $level) {
-				if (in_array($level->level_id, $download_levels)) {
-					$license_level = $download_id;
-					break;
-				}
-			}
-			if (isset($license_level)) {
-				$valid_level = $license_level;
-				break;
-			}
-		}
-		print_r(json_encode($valid_level));
-		exit;
-	}
-}
-
 add_action('init', 'md_validate_license');
 
 function md_validate_license() {
 	if (isset($_GET['action']) && $_GET['action'] == 'md_validate_license') {
-		do_action('md_validate_license', $_REQUEST, $_SERVER);
 		$response = array('valid' => 0, 'download_id' => null);
 		if (isset($_GET['key'])) {
 			$key = $_GET['key'];
@@ -2672,9 +2708,8 @@ if (!is_idc_free()) {
 }
 function md_sendto_mailchimp($user_id, $order_id, $paykey = null, $fields = null) {
 	//echo 'start of mc';
-	if (!class_exists('MailChimp')) {
-		require_once IDC_PATH.'lib/mailchimp-api-master/MailChimp.class.php';
-	}
+
+	require_once IDC_PATH.'lib/mailchimp-api-master/MailChimp.class.php';
 	$crm_settings = get_option('crm_settings');
 	if (!empty($crm_settings)) {
 		$mailchimp_key = apply_filters('idc_sendtomc_key', $crm_settings['mailchimp_key'], $order_id);
@@ -2806,18 +2841,6 @@ function md_sendto_mailchimp($user_id, $order_id, $paykey = null, $fields = null
 	// echo 'after mc';
 }
 
-add_action('idc_guest_checkout_order', 'idc_save_guest_data', 10, 2);
-
-function idc_save_guest_data($order_id, $customer = array()) {
-	if (!empty($customer['pw'])) {
-		unset($customer['pw']);
-	}
-	if (!empty($customer['cpw'])) {
-		unset($customer['cpw']);
-	}
-	ID_Member_Order::update_order_meta($order_id, "guest_data", $customer);
-}
-
 /**
  * Action called after order success, will store currency in order meta and Client's IP Address as well
  */
@@ -2825,15 +2848,10 @@ add_action('memberdeck_free_success', 'idc_save_order_meta', 100, 2);
 add_action('memberdeck_payment_success', 'idc_save_order_meta', 100, 5);
 add_action('memberdeck_preauth_success', 'idc_save_order_meta', 100, 5);
 function idc_save_order_meta($user_id, $order_id, $paykey = '', $fields = null, $source = '') {
-	// store extra fields
-	ID_Member_Order::update_order_meta($order_id, "extra_fields", $fields);
-	ID_Member_Order::update_order_meta($order_id, 'paykey', $paykey);
-
 	// Getting symbol to store in meta data
 	$currency_code = ID_Member_Order::get_order_currency($source);
 	$gateway_options = array("gateway" => ((isset($source)) ? $source : ''), "currency_code" => $currency_code);
 
-	// store gateway info
 	ID_Member_Order::update_order_meta(
 		$order_id,
 		$meta_key = "gateway_info",
@@ -2846,8 +2864,7 @@ function idc_save_order_meta($user_id, $order_id, $paykey = '', $fields = null, 
 	if (function_exists('idf_client_ip')) {
 		$clients_data = array();
 		$clients_data['ip_address'] = idf_client_ip();
-		// #devnote need to pass $_SERVER or add to fields
-		$clients_data['user_agent'] = (isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '');
+		$clients_data['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
 		ID_Member_Order::update_order_meta($order_id, "user_ip_address", $clients_data);
 	}
 }
@@ -2888,7 +2905,8 @@ if (!is_idc_free()) {
 }
 function idc_assign_product_on_register($user_id, $email) {
 	// Checking if default product is enabled in Admin, then add a member with default product
-	$general = maybe_unserialize(get_option('md_receipt_settings'));
+	$general = get_option('md_receipt_settings');
+	$general = maybe_unserialize($general);
 	if (isset($general['enable_default_product'])) {
 		if (apply_filters('idc_enable_default_product', $general['enable_default_product']) == "1") {
 			$default_product = $general['default_product'];
@@ -2903,11 +2921,7 @@ function idc_assign_product_on_register($user_id, $email) {
 					$new = ID_Member::add_user($user);
 				}
 				else {
-					// level is being overwritten by the udpate_user call in create_customer
-					$access_levels = maybe_unserialize($current_member->access_level);
-					$access_levels[] = $default_product;
-					$current_member->level = $access_levels;
-					$update = ID_Member::update_user((array) $current_member);
+					
 				}
 			}
 		}
@@ -2958,18 +2972,15 @@ function idmember_get_profile() {
 }
 
 add_action('wp_ajax_idmember_get_profile', 'idmember_get_profile');
+add_action('wp_ajax_nopriv_idmember_get_profile', 'idmember_get_profile');
 
 function idmember_get_levels() {
 	// Used to list levels in admin, combined products, and in content protection metabox
-	$filter = null;
-	if (isset($_POST['filter'])) {
-		$filter = idf_sanitize_array($_POST['filter']);
-	}
-	$levels = ID_Member_Level::get_levels($filter);	
+	$levels = ID_Member_Level::get_levels();	
 	$level = array();
 	foreach ($levels as $object) {
 		foreach ($object as $k=>$v) {
-			$object->$k = html_entity_decode(idc_text_format($v));
+			$object->$k = html_entity_decode(stripslashes($v));
 		}
 		$level[$object->id] = $object;
 	}
@@ -2978,35 +2989,7 @@ function idmember_get_levels() {
 }
 
 add_action('wp_ajax_idmember_get_levels', 'idmember_get_levels');
-
-function idc_level_get_all_level_meta() {
-	if (empty($_POST['id'])) {
-		return;
-	}
-	// Global function for getting level meta
-	$raw_meta = ID_Member_Level::get_all_level_meta(absint($_POST['id']));
-	$meta = array();
-	if (!empty($raw_meta)) {
-		#devnote make recursive
-		foreach ($raw_meta as $object) {
-			foreach ($object as $key=>$val) {
-				if (is_array($val)) {
-					foreach ($val as $k=>$v) {
-						$object->$k = html_entity_decode(idc_text_format($v));
-					}
-				}
-				else {
-					$object->$key = html_entity_decode(idc_text_format($val));
-				}
-			}
-			$meta[$object->id] = $object;
-		}
-	}
-	print_r(json_encode($meta));
-	exit;
-}
-
-add_action('wp_ajax_idc_level_get_all_level_meta', 'idc_level_get_all_level_meta');
+add_action('wp_ajax_nopriv_idmember_get_levels', 'idmember_get_levels');
 
 function idmember_get_credits() {
 	if (!is_idc_free()) {
@@ -3151,11 +3134,11 @@ function idc_cancel_sub() {
 				ID_Member_Subscription::cancel_subscription_id($plan_id);
 			}
 			else {
-				$response['message'] = $response_cancel->getMessageText().' '.__LINE__;
+				$response['message'] = $response_cancel->getMessageText();
 			}
 		}
 		else {
-			$sk = idc_stripe_sk();
+			$sk = stripe_sk();
 			if (!class_exists('Stripe')) {
 				require_once 'lib/stripe-php-4.2.0/init.php';
 			}
@@ -3200,14 +3183,12 @@ function idmember_edit_user() {
 		$id = $_POST['ID'];
 		$user = new ID_Member();
 		$levels = $user->user_levels($id);
-		if (!empty($levels)) {
-			$levels = maybe_unserialize($levels->access_level);
+		if (isset($levels)) {
+			$levels = unserialize($levels->access_level);
 			$lasts = array();
 			if (is_array($levels)) {
 				$i = 0;
-				$ordered_levels = array();
 				foreach ($levels as $level) {
-					$ordered_levels[] = $level;
 					$order = new ID_Member_Order(null, $id, $level);
 					$last = $order->get_last_order();
 					if (!empty($last)) {
@@ -3217,7 +3198,6 @@ function idmember_edit_user() {
 					}
 					$i++;
 				}
-				$levels = $ordered_levels;
 			}
 			if ($levels == null) {
 				$levels = 0;
@@ -3276,7 +3256,7 @@ function idmember_save_user() {
 	if (isset($_POST['action']) && $_POST['action'] == 'idmember_save_user') {
 		$id = $_POST['ID'];
 		$levels = $_POST['Levels'];
-		$date = date('Y-m-d H:i:s');
+		$date = date('Y-m-d h:i:s');
 		if (isset($_POST['Dates'])) {
 			$dates = $_POST['Dates'];
 		}
@@ -3390,7 +3370,7 @@ function admin_edit_subscription() {
 		}
 
 		if ($show_subscriptions) {
-			$sk = idc_stripe_sk();
+			$sk = stripe_sk();
 			if (!class_exists('Stripe')) {
 				require_once 'lib/stripe-php-4.2.0/init.php';
 			}
@@ -3457,31 +3437,133 @@ function idmember_save_credits() {
 
 add_action('wp_ajax_idmember_save_credits', 'idmember_save_credits');
 
-function idmember_create_customer() {
-	// this manages payments via the purchase form and instant checkout
-	if (isset($_POST['Token'])) {
-		do_action('idc_create_customer', $_POST);
+/** PAYMENT PROCESSING 
+* this manages payments via the purchase form and instant checkout *
+* SPLASH, AUTHORIZE.NET
+**/
+
+function idmember_create_customer() 
+{	
+	// Token is mostly none
+	if (isset($_POST['Token'])) 
+	{
 		global $crowdfunding;
 		global $first_data;
 		global $stripe_api_version;
+		$zip = "";
 		$token = $_POST['Token'];
 		$customer = $_POST['Customer'];
 		$txn_type = $_POST['txnType'];
+		$camp_id_dynamic = $customer['campaign_id'];
+		$currency = sanitize_text_field($customer['currency']);
+		 
+		$currency_main = sanitize_text_field($customer['currency_main']);
+		$source = $_POST['Source'];
+		// die;
 		$renewable = ((isset($_POST['Renewable'])) ? $_POST['Renewable'] : '');
 		$pwyw_price = ((isset($_POST['PWYW'])) ? sanitize_text_field($_POST['PWYW']) : '');
-		$product_id = absint(sanitize_text_field($customer['product_id']));
+	
+		$percentage_value = get_post_meta($customer['campaign_id'],'percentage_value',true);
+	
+	    $addtion_value =  get_post_meta($customer['campaign_id'],'addition_value',true);
+		$transaction_cost = $customer['transaction_cost'];
+		
+		
+		if($transaction_cost == 'yes')
+		{
+			$a = round(($pwyw_price*($percentage_value/100)+($addtion_value/100)),2);
+			$pwyw_price = $pwyw_price+$a;
+		}
+		
+		if($source == "authorize.net" && ($currency!='cad' && $currency!='CAD' ))
+		{
+		   $pwyw_price = round(convertCurrency($pwyw_price, $currency, "CAD"),2);
+		}
+		
+		if($source == "stripe" && ($currency != $currency_main ))
+		{
+		   $pwyw_price = round(convertCurrency($pwyw_price, $currency, $currency_main),2);
+		}
+				
+		$product_id = 2;
+		
+		$product_id_checkout = absint(sanitize_text_field($customer['product_id_checkout']));
+		$product_id_camp = absint(sanitize_text_field($customer['product_id_checkout']));
+		
+		$paybymethod = sanitize_text_field($customer['paybymethod']);
+		$paymentnature = sanitize_text_field($customer['paymentnature']);		
+		$no_of_month_plan = sanitize_text_field($customer['no_of_month_plan']);		
+		 $new_time = current_time('m/d/Y H:i:s'); 
+		 
+		//echo '=============';
+		
+	    $plan_start_date = date("m/d/Y H:i:s", strtotime('+1 month', strtotime($new_time)));
+		
+		// $plan_start_date = '09/09/2017'; 
+		//die();
+		
+		$card_check_number = sanitize_text_field($customer['card_check_number']);
+		$routing_number = sanitize_text_field($customer['routing_number']);
+		
+		$currency_symbol = sanitize_text_field($customer['currency_symbol']);
+		
+		$psk_dynamic	= get_post_meta($customer['campaign_id'],'stripe_publishable_key',true);	
+        $sk_dynamic = get_post_meta($customer['campaign_id'],'stripe_secret_key',true);
+        $client_sk_dynamic = get_post_meta($customer['campaign_id'],'stripe_client_secret_key',true);
+        $stripe_connected_account_id = get_post_meta($customer['campaign_id'],'stripe_connected_account_id',true);
+       	
+		foreach($_POST['Fields'] as $fld)
+		{
+			if( $fld['name'] == 'address')   $address1 = urldecode($fld['value']);			
+			if( $fld['name'] == 'city')   $city = $fld['value'];			
+			if( $fld['name'] == 'state')   $state = $fld['value'];			
+			if( $fld['name'] == 'zip')  $zip = $fld['value'];			
+			if( $fld['name'] == 'phone_user')  $phone = $fld['value'];	
+            $phone1 = preg_replace("/[^0-9]/","",$phone);			
+		}
+		
 		$settings = get_option('memberdeck_gateways');
+		
 		$stripe_currency = 'USD';
-		if (isset($_POST['Card'])) {
+		
+		if (isset($_POST['exp_month'])) {
+			//echo '=========';
+		  $exp_month = esc_attr($_POST['exp_month']);
+		}
+		if (isset($_POST['exp_year'])) {
+			//echo '=========';
+		  $exp_year = esc_attr($_POST['exp_year']);
+		}
+		
+		
+		if(isset($_POST['Card'])) {
 			$cc_number = esc_attr($_POST['Card']);
 		}
 		if (isset($_POST['Expiry'])) {
-			$cc_expiry = esc_attr($_POST['Expiry']);
+			//echo '=========';
+		  $cc_expiry = esc_attr($_POST['Expiry']);
 		}
 		if (isset($_POST['CCode'])) {
 			$cc_code = esc_attr($_POST['CCode']);
 		}
-		if (!empty($settings)) {
+		
+		if($source == 'stripe')
+		{
+			$amex = "/^3[47][0-9]{13}$/";
+			if(preg_match($amex,$cc_number))
+			{		 
+                $stripe_percentage = get_post_meta($customer['campaign_id'],'stripe_amax_percentage',true);
+                $stripe_cents = get_post_meta($customer['campaign_id'],'stripe_amax_cents',true);
+			}
+			else
+			{
+				$stripe_percentage = get_post_meta($customer['campaign_id'],'stripe_normal_percentage',true);
+                $stripe_cents = get_post_meta($customer['campaign_id'],'stripe_normal_cents',true);
+			}
+		}
+		
+		if (!empty($settings)) 
+		{
 			if (is_array($settings)) {
 				$mc = (isset($settings['manual_checkout']) ? $settings['manual_checkout'] : 0);
 				$test = (isset($settings['test']) ? $settings['test'] : 0);
@@ -3491,6 +3573,7 @@ function idmember_create_customer() {
 				$esc = (isset($settings['esc']) ? $settings['esc'] : 0);
 				$ecb = (isset($settings['ecb']) ? $settings['ecb'] : 0);
 				$eauthnet = (isset($settings['eauthnet']) ? $settings['eauthnet'] : 0);
+				$splashnet = (isset($settings['splashnet']) ? $settings['splashnet'] : 0); // get spalsh active or not
 				if (!empty($settings['stripe_currency'])) {
 					$stripe_currency = $settings['stripe_currency'];
 				}
@@ -3503,7 +3586,8 @@ function idmember_create_customer() {
 				}
 			}
 		}
-		if (function_exists('is_id_pro') && is_id_pro()) {
+		if(function_exists('is_id_pro') && is_id_pro()) 
+		{
 			$settings = get_option('memberdeck_gateways');
 			if (!empty($settings)) {
 				if (is_array($settings)) {
@@ -3515,14 +3599,13 @@ function idmember_create_customer() {
 							if (!empty($md_sc_creds)) {
 								//echo 'using sc';
 								$sc_accesstoken = $md_sc_creds->access_token;
-								$sc_account = $md_sc_creds->stripe_user_id;
 							}
 						}
 					}
 				}
 			}
 		}
-		$source = $_POST['Source'];
+		
 
 		if (empty($source)) {
 			if ($efd == 1) {
@@ -3532,6 +3615,9 @@ function idmember_create_customer() {
 			}
 			else if ($eauthnet == 1) {
 				$source = 'authorize.net';
+			}
+			else if ($splashnet == 1) { //splash
+				$source = 'Splash';
 			}
 			else {
 				$source = 'stripe';
@@ -3554,20 +3640,27 @@ function idmember_create_customer() {
 			$customer_id = apply_filters('idc_customer_id_checkout', (isset($customer_id) ? $customer_id : ''), $source, null, $_POST['Fields']);
 		}
 
-		if ($source == 'stripe') {
-			if (!class_exists('Stripe')) {
+		if ($source == 'stripe') 
+		{
+			if (!class_exists('Stripe')) 
+			{
 				require_once 'lib/stripe-php-4.2.0/init.php';
 			}
-			if ($test == '1') {
-				$apikey = $tsk;
-				\Stripe\Stripe::setApiKey($tsk);
-				\Stripe\Stripe::setApiVersion($stripe_api_version);
+			
+				
+					$apikey = $sk_dynamic;
+			
+            if($paymentnature == 'One Time Payment')
+            {				
+				\Stripe\Stripe::setApiKey($sk_dynamic);
 			}
-			else {
-				$apikey = $sk;
-				\Stripe\Stripe::setApiKey($sk);
-				\Stripe\Stripe::setApiVersion($stripe_api_version);
+			else
+			{
+				\Stripe\Stripe::setApiKey($client_sk_dynamic);
 			}
+					\Stripe\Stripe::setApiVersion($stripe_api_version);
+				
+			
 		}
 		else if ($source == 'fd') {
 			// we can pass a reference number as description
@@ -3582,22 +3675,48 @@ function idmember_create_customer() {
 				$wsdl = 'https://api.globalgatewaye4.firstdata.com/transaction/v12/wsdl';
 			}
 		}
-		else if ($source == "authorize.net") {
+		else if ($source == "authorize.net")
+		{
 			// Requiring the library of Authorize.Net
-			require('lib/AuthorizeNet/sdk-php-master/vendor/autoload.php');
-			define("AUTHORIZENET_API_LOGIN_ID", $settings['auth_login_id']);
-			define("AUTHORIZENET_TRANSACTION_KEY", $settings['auth_transaction_key']);
-			if ($test == '1') {
+			require("lib/AuthorizeNet/vendor/authorizenet/authorizenet/AuthorizeNet.php");
+			
+			$login_id	= get_post_meta($customer['campaign_id'],'authorize_login_id',true);	
+            $transaction_id = get_post_meta($customer['campaign_id'],'authorize_transaction_key',true);
+			
+			define("AUTHORIZENET_API_LOGIN_ID", $login_id);
+			define("AUTHORIZENET_TRANSACTION_KEY", $transaction_id);
+			
+			if ($test == '1') 
+			{
 				define("AUTHORIZENET_SANDBOX", true);
-			} else {
+			} 
+			else 
+			{
 				define("AUTHORIZENET_SANDBOX", false);
 			}
-			$ID_Authorize_Net = new ID_Authorize_Net($settings['auth_login_id'], $settings['auth_transaction_key'], $test);
+			$ID_Authorize_Net = new ID_Authorize_Net($login_id, $transaction_id, $test);
 		}
+		
+		/*************** Call Splash Library and get account details in variable  ************/
+		else if($source == "Splash") {
+			require_once('lib/Splash/vendor/autoload.php');
+			//$apiKey	=	$settings['splash_api_key'];
+			$apiKey	=	get_post_meta($customer['campaign_id'],'api_key',true);	
+           // $merchantId	=	$settings['splash_merchant_id'];
+			$merchantId = get_post_meta($customer['campaign_id'],'merchant',true);
+            $mid	=	$settings['splash_member_id'];
+			\SplashPayments\Utilities\Config::setApiKey($apiKey);
+		   if ($test == '1') {
+              \SplashPayments\Utilities\Config::setTestMode(true);
+		   }else{
+			  \SplashPayments\Utilities\Config::setTestMode(false);
+		   } 
+		} 
+		/*************************************************************************/
 		else {
 			// 
 		}
-		
+			
 		$access_levels = array($product_id);
 		$level_data = ID_Member_Level::get_level($product_id);
 		// If product is renewable, then we need to use renewable price, and avoid any pwyw we might have
@@ -3605,7 +3724,8 @@ function idmember_create_customer() {
 			$level_data->level_price = $level_data->renewal_price;
 			$ignore_upgrade = true;
 		}
-		else {
+		else 
+		{
 			if (isset($pwyw_price) && $pwyw_price > 0) {
 				if ($level_data->product_type == 'purchase') {
 					if ($pwyw_price > $level_data->level_price) {
@@ -3621,10 +3741,29 @@ function idmember_create_customer() {
 			}
 		}
 
-		$fname = sanitize_text_field($customer['first_name']);
-		$lname = sanitize_text_field($customer['last_name']);
+		$fname = esc_attr($customer['first_name']);
+		$lname = esc_attr($customer['last_name']);
+		$msg = esc_attr($customer['msg']);
+		$user_phone = esc_attr($customer['user_phone']);
+		
+	$price = str_replace(',', '', $level_data->level_price);
+	
+	    if($source == "authorize.net" && $currency!='cad' && $currency!='CAD' )		
+		{		 
+        	$price_convert = convertCurrency($price, $currency, "CAD");		
+		}		
+		else if($source == "Splash" && $currency != 'usd' && $currency != 'USD'  )	
+		{		
+         	$price_convert = convertCurrency($price, $currency, "USD");		
+			if($price_convert < 1 || $price==0)			
+			{				
+		      print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => 'Min Amount for AUD=2,  CAD=2, GBP=1, USD=1, EUR=1', 'line' => __LINE__)));				
+			  exit();			
+			  }		
+		}	
+		
 		if (isset($customer['email'])) {
-			$email = sanitize_email($customer['email']);
+			$email = esc_attr($customer['email']);
 		}
 		else {
 			// they have used 1cc or some other mechanism and we don't have their email
@@ -3633,17 +3772,19 @@ function idmember_create_customer() {
 				$email = $current_user->user_email;
 			}
 		}
-		$pw = null;
-		if (!empty($customer['pw'])) {
+		if (isset($customer['pw'])) {
 			$pw = sanitize_text_field($customer['pw']);
 		}
 		$member = new ID_Member();
 		$check_user = $member->check_user($email);
-
+    
 		$level_data->level_price = apply_filters( 'idc_checkout_level_price', $level_data->level_price, $product_id, ((!empty($check_user)) ? $check_user->ID : ''), ((isset($ignore_upgrade)) ? $ignore_upgrade : false) );
 		$level_data = apply_filters('idc_level_data', $level_data, 'checkout');
+
 		$recurring_type = $level_data->recurring_type;
-		if ($level_data->level_type == 'recurring') {
+		$recurring_type = 'lifetime';
+  
+		if($level_data->level_type == 'recurring') {
 			$plan = $level_data->plan;
 			if ($recurring_type == 'weekly') {
 				// weekly
@@ -3658,7 +3799,7 @@ function idmember_create_customer() {
 				$exp = strtotime('+1 years');
 				
 			}
-			$e_date = date('Y-m-d H:i:s', $exp);
+			$e_date = date('Y-m-d h:i:s', $exp);
 			$recurring = true;
 			$interval = $level_data->recurring_type;
 			// check for limits
@@ -3671,18 +3812,41 @@ function idmember_create_customer() {
 			$recurring = false;
 		}
 		else {
-			$e_date = idc_set_order_edate($level_data);
+			$exp = strtotime('+1 years');
+			$e_date = date('Y-m-d h:i:s', $exp);
 			$recurring = false;
 		}
+
 		if (!empty($check_user)) {
 			// echo 'check user is set'."\n";
 			// We have a match so we need to add this level to the array of access levels
 			// I also need to re-use our Stripe customer somehow
-			$user_id = $check_user->ID;
-			if ($source == 'stripe') {
-				// this 2nd attempt should work
-				$customer_id = customer_id_ajax($user_id);
+			$user_id = $check_user->ID;		
+			if ($source == 'stripe') 
+			{
+				
+			  	$customer_id = customer_id_ajax($user_id);
+				
+			    if(!empty($customer_id))
+			    {
+				   
+				  try
+				  {
+				    $customer = \Stripe\Customer::retrieve($customer_id,array('api_key' => $sk_dynamic));
+				  }
+				  catch (Exception $e) 
+				  {
+					 $message = $e->json_body['error']['message'];
+					 if($message == null)
+					 {
+						 $customer_id='';
+					 }
+					  
+				  }
+				 
+			    }
 			}
+			
 			else if ($source == 'fd') {
 				// this 2nd attempt should work
 				$fd_card_details = fd_customer_id_ajax($user_id);
@@ -3706,24 +3870,51 @@ function idmember_create_customer() {
 				$ID_Authorize_Net->set_profile_ids($customerProfileId, $customer_id);
 				// echo "from meta; customer_id: ". $customer_id. ", customerProfileId: ".$customerProfileId."\n";
 			}
+			/**************** If wp user exist then get Splash customer id  *********************/
+			else if ($source == 'Splash') 
+			{
+				$splash_customer_id = get_user_meta($user_id, 'splash_profile_id',true);
+				
+				if (!empty($splash_customer_id)) {
+					$customer_id = $splash_customer_id['splash_payment_profile_id'];
+					$splash_cust_api_key  = $splash_customer_id['splash_payment_apii_id'];
+				}else {
+				    $customer_id = '';
+				}
+				
+			}						
+			/**********************************************/
+			
 			// Same filter called for 2nd attempt, when $user_id is there
 			$customer_id = apply_filters('idc_customer_id_checkout', $customer_id, $source, $user_id, $_POST['Fields']);
+			if(!empty($customer_id))
+			{
+               update_user_meta($customer_id,'message',$msg);
+               update_user_meta($customer_id,'user_phone',$user_phone);
+			}
 			$match_user = $member->match_user($user_id);
-			if (!isset($match_user->data) && empty($customer_id)) {
+			
+			
+			if(!isset($match_user->data) && empty($customer_id)) 
+			{
 				// no customer ID exists
-				if ($source == 'stripe') {
+			  	//echo "not exist";
+				if ($source == 'stripe') 
+				{
 					// this means we need to create a customer id with stripe
 					// echo 'is new customer'."\n";
-					try {
+					try 
+					{
 						$newcust = \Stripe\Customer::create(array(
-						'description' => $fname . ' ' . $lname,
-						'email' => $email,
-						'source' => $token));
+						'description' => $email,
+						'email' => $email
+						));
 						//print_r($newcust);
 						$custid = $newcust->id;
 						$insert = true;
 					}
 					catch (\Stripe\Error\Card $e) {
+						
 						// Card was declined
 						$jsonbody = $e->getJsonBody();
 						$message = $jsonbody['error']['message'].' '.__LINE__;
@@ -3827,16 +4018,78 @@ function idmember_create_customer() {
 							$ID_Authorize_Net->set_profile_ids($customerProfileId, $custid);
 						}
 						else {
-							print_r(json_encode(array('response' => $responsePayment->getResultCode(), 'message' => $responsePayment->getMessageText().' '.__LINE__, 'line' => __LINE__)));
+							print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $responsePayment->getErrorMessage(), 'line' => __LINE__)));
 							exit();
 						}
 						$insert = true;
-					}
+					} 
 					else {
-						print_r(json_encode(array('response' => $response->getResultCode(), 'message' => $response->getMessageText().' '.__LINE__, 'line' => __LINE__)));
+						print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $response->getErrorMessage(), 'line' => __LINE__)));
 						exit();
 					}
 				}
+				/************** create Splash customer id and token  *********************/
+				else if ($source == 'Splash') 
+				{	
+                    $price = str_replace(',', '', $level_data->level_price);			
+					$object = splash_customer_create($fname,$lname,$email,$address1,$city,$zip,$state,$phone1);
+														try {
+															    $object->create();
+																$response		=	$object->getResponse();
+																$custid		=	$response[0]->id;
+															
+																 
+															}
+														catch (\SplashPayments\Exceptions\Base $e) {
+															decline_payment_save($fname,$lname,$email,$address1,$city,$zip,$state,$price,$product_id_checkout,$currency);
+																$error = $object->getErrors();
+																if($error)
+																{
+																	$message = $error[0]['msg'];
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}
+																
+																exit;
+															}
+															
+			     if(isset($custid))
+				 {
+					//update_user_meta($custid,'message',$msg);
+                    //update_user_meta($custid,'user_phone',$user_phone);
+					$price = str_replace(',', '', $level_data->level_price);
+					$method = validatecard($cc_number);
+					if($paybymethod == 'Check'){
+					  $object = splash_token_create_check($custid,$method,$card_check_number,$routing_number,$state, $zip,$email);
+				    }
+				    else{
+				      $object = splash_token_create($custid,$method,$cc_number,$cc_code,$cc_expiry,$state, $zip,$email);
+				    }
+					// $object = splash_token_create($custid,$method,$cc_number,$cc_code,$cc_expiry,$state, $zip,$email);
+					
+																try {
+																	$object->create();
+																	$response		=	$object->getResponse();
+																			// get id;
+																			$tokenId	=	$response[0]->token;
+																}
+																catch (\SplashPayments\Exceptions\Base $e) {
+																	decline_payment_save($fname,$lname,$email,$address1,$city,$zip,$state,$price,$product_id_checkout,$currency);
+																    $error = $object->getErrors();
+																	//print_r($error);
+																	if($error)
+																	{
+																		//$message = $error[0]['msg'];
+																		$message = $error[0]['msg'].'. Please check credit card or check details.';
+																		print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																	}
+																	
+																	exit;
+																} 	
+				 }
+					
+				}
+				
+				/************************************/
 				else if ($source == 'mc') {
 					$insert = true;
 				}
@@ -3853,23 +4106,30 @@ function idmember_create_customer() {
 					"extra_fields" => $_POST['Fields'],
 					"insert" => false
 				));
+				
+				//update_user_meta($custid,'msg',$msg);
 			}
 			else {
+				
 				// we have a customer ID
 				// this is the point at which we check for add card vs re-use
-				if (!empty($customer_id)) {
-					// echo 'cust id not empty and equal to '.$customer_id."\n";
+				if (!empty($customer_id)) 
+				{
+					 //echo 'cust id not empty and equal to '.$customer_id."\n";
 					$custid = $customer_id;
+					
 					// there is a customer id saved, so we have the option to use it
 					if (!empty($token) && $token == 'customer') {
 						// they used 1cc
 						//echo 'option 1';
 						// echo "token is 'customer'\n";
+						
 					}
 					else {
 						// they entered new details, let's add this card to their account
 						// need to make sure this card doesn't already exist
 						// echo 'option 2'."\n";
+						// die;
 						$use_token = true;
 						$in_acct = false;
 						// Check if card exists, if not add into customer's account
@@ -3884,7 +4144,9 @@ function idmember_create_customer() {
 							"source" => $source,
 							"extra_fields" => $_POST['Fields']
 						));
-						if ($source == 'stripe') {
+						//update_user_meta($custid,'msg1',$msg);
+						if ($source == 'stripe') 
+						{
 							//echo 'source is stripe';
 							try {
 								$token_obj = \Stripe\Token::retrieve($token);
@@ -3898,8 +4160,7 @@ function idmember_create_customer() {
 								exit;
 							}
 							try {
-								//$cards = \Stripe\Customer::retrieve($custid)->cards->all();
-								$cards = \Stripe\Customer::retrieve($custid)->sources->all(array('object' => 'card'));
+								$cards = \Stripe\Customer::retrieve($custid)->cards->all();
 							}
 							catch (Exception $e) {
 								// could not retrieve a customer, so we need to create one
@@ -3939,8 +4200,7 @@ function idmember_create_customer() {
 								}
 								if (isset($cu)) {
 									try {
-										//$card_object = $cu->cards->create(array('card' => $token));
-										$card_object = $cu->sources->create(array('source' => $token));
+										$card_object = $cu->cards->create(array('card' => $token));
 										$card_id = $card_object->id;
 									}
 									catch (\Stripe\Error\Card $e) {
@@ -4024,9 +4284,104 @@ function idmember_create_customer() {
 						else if ($source == 'authorize.net') {
 							// Check if card already exists, get its payment profile id, if not, make a new payment profile
 							$ID_Authorize_Net->check_payment_profile_exists($fname, $lname, $email, $cc_number, $cc_expiry, $cc_code, $_POST['Fields']);
-							$custid = $ID_Authorize_Net->get_payment_profile_id();
-							$customerProfileId = $ID_Authorize_Net->get_profile_id();
+							//echo 'hello===';
+							 $custid = $ID_Authorize_Net->get_payment_profile_id();
+							//echo '=======';
+						    $customerProfileId = $ID_Authorize_Net->get_profile_id();
 						}
+						/********** upadte customer and create token if customer id exist Splash ***************************/
+						else if ($source == 'Splash') 
+						{
+							
+							if($splash_cust_api_key != $apiKey)
+							{
+								$price = str_replace(',', '', $level_data->level_price);
+								$object = splash_customer_create($fname,$lname,$email,$address1,$city,$zip,$state,$phone1);
+														try {
+															    $object->create();
+																$response		=	$object->getResponse();
+																$custid		=	$response[0]->id;
+															
+																 
+															}
+														catch (\SplashPayments\Exceptions\Base $e) {
+															decline_payment_save($fname,$lname,$email,$address1,$city,$zip,$state,$price,$product_id_checkout,$currency);
+																$error = $object->getErrors();
+																if($error)
+																{
+																	$message = $error[0]->msg;
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}
+																
+																exit;
+															}								
+							} 
+							//echo $custid;
+						  if($custid)
+						  {
+							   $price = str_replace(',', '', $level_data->level_price);
+							   $object = splash_customer_update($custid,$fname,$lname,$email,$address1,$city,$zip,$state,$phone1); 
+							
+							                            try {
+															    $object->update();
+																$response		=	$object->getResponse();
+																$custid		=	$response[0]->id;
+																										 
+															}
+														catch (\SplashPayments\Exceptions\Base $e) 
+														{
+															decline_payment_save($fname,$lname,$email,$address1,$city,$zip,$state,$price,$product_id_checkout,$currency);
+																$error = $object->getErrors();
+																if($error)
+																{
+																	$message = $error[0]->msg;
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}
+																
+																exit;
+														}
+															
+							  
+							 //update_user_meta($custid,'message',$msg);
+                            // update_user_meta($custid,'user_phone',$user_phone); 
+							 $price = str_replace(',', '', $level_data->level_price);
+					         $method = validatecard($cc_number);
+					    if($paybymethod == 'Check')
+						{
+						  $object = splash_token_create_check($custid,$method,$card_check_number,$routing_number,$state, $zip,$email);
+					    }
+					    else
+						{
+							//echo 'here';
+						  $object = splash_token_create($custid,$method,$cc_number,$cc_code,$cc_expiry,$state, $zip,$email);
+					    }
+						//$object = splash_token_create($custid,$method,$cc_number,$cc_code,$cc_expiry,$state, $zip,$email);
+																try {
+																	$object->create();
+																	$response		=	$object->getResponse();
+																			// get id;
+																			$tokenId	=	$response[0]->token;
+																		
+																}
+																catch (\SplashPayments\Exceptions\Base $e) {
+																decline_payment_save($fname,$lname,$email,$address1,$city,$zip,$state,$price,$product_id_checkout,$currency);	
+																		$error = $object->getErrors();
+																		
+																		if($error)
+																		{
+																			
+																			//$message = $error[0]['msg'];
+																			$message = $error[0]['msg'].'. Please check credit card or check  details. ';
+																			print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																		}
+																		
+																		exit;
+																} 
+						  }										
+                        // die;																
+						}
+						
+						/****************************************************/
 					}
 				}
 				else {
@@ -4039,11 +4394,11 @@ function idmember_create_customer() {
 					if ($source == 'stripe') {
 						try {
 							$newcust = \Stripe\Customer::create(array(
-								'description' => $fname . ' ' . $lname,
-								'email' => $email,
-								'source' => $token));
+								'description' => $email,
+								'email' => $email
+								));
 								$custid = $newcust->id;
-								//print_r($newcust);
+							//	print_r($newcust);
 						}
 						catch (\Stripe\Error\Card $e) {
 							// Card was declined
@@ -4120,7 +4475,7 @@ function idmember_create_customer() {
 						}
 					}
 					else if ($source == 'authorize.net') {
-						// echo __LINE__.": we didn't find a custid so we have to make one\n";
+						//echo __LINE__.": we didn't find a custid so we have to make one \n";
 						$request = new AuthorizeNetCIM;
 						// Create new customer profile
 						$customerProfile = new AuthorizeNetCustomer;
@@ -4128,6 +4483,7 @@ function idmember_create_customer() {
 						$customerProfile->email = $email;
 						// $customerProfile->paymentProfiles = array($paymentProfile);
 						$response = $request->createCustomerProfile($customerProfile);
+
 						if ($response->isOk()) {
 							$customerProfileId = $response->getCustomerProfileId();
 
@@ -4149,18 +4505,78 @@ function idmember_create_customer() {
 								$ID_Authorize_Net->set_profile_ids($customerProfileId, $custid);
 							}
 							else {
-								print_r(json_encode(array('response' => $response->getResultCode(), 'message' => $response->getMessageText().' '.__LINE__, "line" => __LINE__)));
+								print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $response->getErrorMessage(), "line" => __LINE__)));
 								exit;
 							}
 						}
 						else {
-							print_r(json_encode(array('response' => $response->getResultCode(), 'message' => $response->getMessageText().' '.__LINE__, "line" => __LINE__)));
+							print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $response->getErrorMessage(), "line" => __LINE__)));
 							exit;
 						}
 					}
+					
+			    /****************** Create Splash Customer and Token if New User *********************/
+				  else if ($source == 'Splash') {
+					  $price = str_replace(',', '', $level_data->level_price);
+					 $object = splash_customer_create($fname,$lname,$email,$address1,$city,$zip,$state,$phone1);
+
+															try {
+															$object->create();
+																	$response		=	$object->getResponse();
+																	// get id;
+																	$custid		=	$response[0]->id;
+															}
+															catch (\SplashPayments\Exceptions\Base $e) {
+																decline_payment_save($fname,$lname,$email,$address1,$city,$zip,$state,$price,$product_id_checkout,$currency);
+																$error = $object->getErrors();
+																if($error)
+																{
+																	$message = $error[0]['msg'];
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}
+																
+																exit;
+															}
+					
+                    if(isset($custid))	
+                    {
+						$price = str_replace(',', '', $level_data->level_price);
+						$method = validatecard($cc_number);
+						if($paybymethod == 'Check')
+						{
+						  $object = splash_token_create_check($custid,$method,$card_check_number,$routing_number,$state, $zip,$email);
+					    }
+					    else{
+						  $object = splash_token_create($custid,$method,$cc_number,$cc_code,$cc_expiry,$state, $zip,$email);
+					    }
+						   // $object = splash_token_create($custid,$method,$cc_number,$cc_code,$cc_expiry,$state, $zip,$email);
+																try {
+																	$object->create();
+																	$response		=	$object->getResponse();
+																			// get id;
+																			$tokenId	=	$response[0]->token;
+																}
+																catch (\SplashPayments\Exceptions\Base $e) {
+					                                              decline_payment_save($fname,$lname,$email,$address1,$city,$zip,$state,$price,$product_id_checkout,$currency);										
+																	$error = $object->getErrors();
+																	//print_r($error);
+																	if($error)
+																	{
+																		//$message = $error[0]['msg'];
+																		$message = $error[0]['msg'].'. Please check credit card or check details.';
+																		print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																	}
+																	
+																	exit;
+																} 					
+					}																									
+				  }
+				
+				/************************************/
+				
 					// No customer exists, create a new one
 					$custid = apply_filters('idc_create_customer_checkout', (isset($custid) ? $custid : ''), $user_id, array(
-						"fname" => $fname,  
+						"fname" => $fname, 
 						"lname" => $lname, 
 						"email" => $email, 
 						"cc_number" => ((isset($cc_number)) ? $cc_number : ''), 
@@ -4171,6 +4587,7 @@ function idmember_create_customer() {
 						"extra_fields" => $_POST['Fields'],
 						"called_line" => __line__
 					));
+				//	update_user_meta($custid,'msg2',$msg);
 				}
 			}	
 		}
@@ -4182,9 +4599,10 @@ function idmember_create_customer() {
 				// after we create a new Stripe customer
 				try {
 					$newcust = \Stripe\Customer::create(array(
-						'description' => $fname . ' ' . $lname,
-						'email' => $email,
-						'source' => $token));
+						'description' => $email,
+						'email' => $email
+						//'card' => $token
+						));
 					//print_r($newcust);
 					$custid = $newcust->id;
 					$newuser = true;
@@ -4265,7 +4683,7 @@ function idmember_create_customer() {
 				}
 			}
 			else if ($source == 'authorize.net') {
-				// echo "this is a new user, creating profile\n";
+				 //echo "this is a new user, creating profile\n";
 				$request = new AuthorizeNetCIM;
 				// Create new customer profile
 				$customerProfile = new AuthorizeNetCustomer;
@@ -4273,6 +4691,7 @@ function idmember_create_customer() {
 				$customerProfile->email = $email;
 				// $customerProfile->paymentProfiles = array($paymentProfile);
 				$response = $request->createCustomerProfile($customerProfile);
+
 				if ($response->isOk()) {
 					$customerProfileId = $response->getCustomerProfileId();
 
@@ -4294,16 +4713,72 @@ function idmember_create_customer() {
 						$newuser = true;
 					}
 					else {
-						print_r(json_encode(array('response' => $responsePayment->getResultCode(), 'message' => $responsePayment->getMessageText().' '.__LINE__, "line" => __LINE__)));
+						print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $responsePayment->getErrorMessage(), "line" => __LINE__)));
 						exit();
 					}
 				}
-				else {
-					print_r(json_encode(array('response' => $response->getResultCode(), 'message' => $response->getMessageText().' '.__LINE__, "line" => __LINE__)));
-					exit();
-				}
 			}
+			/************* Create Splash Customer and Token If New User  *********************/
+			else if ($source == 'Splash') 
+			{
+               $price = str_replace(',', '', $level_data->level_price);
+				$object = splash_customer_create($fname,$lname,$email,$address1,$city,$zip,$state,$phone1);
+				    try {
+						  $object->create();
+								$response		=	$object->getResponse();
+								//echo "customer id";
+							 	 $custid		=	$response[0]->id;
+								 
+						}
+						catch (\SplashPayments\Exceptions\Base $e) {
+							decline_payment_save($fname,$lname,$email,$address1,$city,$zip,$state,$price,$product_id_checkout,$currency);
+							// echo "customer error";
+							                                    $error = $object->getErrors();
+																//print_r($error);
+																if($error)
+																{
+																	$message = $error[0]['msg'];
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}																
+																exit;
+						}
+						//echo "customer $custid";
+				if(isset($custid))
+				{
+					$price = str_replace(',', '', $level_data->level_price);
+					$method = validatecard($cc_number);
+				   if($paybymethod == 'Check'){
+					  $object = splash_token_create_check($custid,$method,$card_check_number,$routing_number,$state, $zip,$email);
+				   }
+				   else{
+				      $object = splash_token_create($custid,$method,$cc_number,$cc_code,$cc_expiry,$state, $zip,$email);
+				   }
+													try {
+														$object->create();
+														$response		=	$object->getResponse();
+																// get id;
+																$tokenId		=	$response[0]->token;
+													}
+													catch (\SplashPayments\Exceptions\Base $e) {
+						decline_payment_save($fname,$lname,$email,$address1,$city,$zip,$state,$price,$product_id_checkout,$currency);						
+														// echo "token error";
+													           $error = $object->getErrors();
+															  // print_r($error);
+																if($error)
+																{
+																	//$message = $error[0]['msg'];
+																	$message = $error[0]['msg'].'. Please check credit card or check details.';
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}
+																
+																exit;
+													}						
+				}
+				
+			}
+			/***********************************************************/
 			// New User, create a new Customer
+			//die;
 			$custid = apply_filters('idc_create_customer_checkout', (isset($custid) ? $custid : ''), $user_id='', array(
 				"fname" => $fname, 
 				"lname" => $lname, 
@@ -4316,13 +4791,15 @@ function idmember_create_customer() {
 				"extra_fields" => $_POST['Fields'],
 				"called_line" => __line__
 			));
-		}
-		if ((isset($custid) && !empty($custid)) || $source == 'mc') {
+			update_user_meta($custid,'message',$msg);
+			update_user_meta($custid,'user_phone',$user_phone);
+		} 
+		if((isset($custid) && !empty($custid)) || $source == 'mc') {
 			// echo 'custid is set to '.$custid.''."\n";
 			// now we need to charge the customer
-			if (!isset($recurring) || $recurring == false) {
+			if(!isset($recurring) || $recurring == false) {
 				// echo 'not recurring';
-				if (empty($txn_type)) {
+				if(empty($txn_type)) {
 					if (!empty($level_data->txn_type)) {
 						$txn_type = $level_data->txn_type;
 					}
@@ -4330,18 +4807,25 @@ function idmember_create_customer() {
 						$txn_type = 'capture';
 					}
 				}
-				if ($txn_type == 'capture') {
-					if (isset($use_token) && $use_token) {
+				if($txn_type == 'capture') 
+				{
+					 
+					if (isset($use_token) && $use_token == true) 
+					{
 						// echo "use token\n";
-						if ($source == 'stripe') {
+						// echo $sc_accesstoken;
+						 
+						if ($source == 'stripe') 
+						{
 							//try {
 								$price = str_replace(',', '', $level_data->level_price) * 100;
-								if (!empty($sc_accesstoken)) {
+								if(!empty($sc_accesstoken)) 
+								{
 									$fee = 0;
 									$sc_settings = get_option('md_sc_settings');
 									if (!empty($sc_settings)) {
 										if (!is_array($sc_settings)) {
-											$sc_settings = maybe_unserialize($sc_settings);
+											$sc_settings = unserialize($sc_settings);
 										}
 										if (is_array($sc_settings)) {
 											$app_fee = apply_filters('idc_app_fee', $sc_settings['app_fee'], $level_data);
@@ -4350,7 +4834,6 @@ function idmember_create_customer() {
 										}
 									}
 									try {
-										// generate a new token using shared customer 
 										$card_id = \Stripe\Token::create(array(
 											"customer" => $custid,
 											"card" => $card_id),
@@ -4371,12 +4854,10 @@ function idmember_create_customer() {
 									}
 									try {
 										$newcharge = \Stripe\Charge::create(array(
-										//'customer' => $custid, does not work when using shared customers
 										'amount' => $price,
-										'source' => $card_id->id,
-										'description' => $fname . ' ' . $lname . ' - ' . $level_data->level_name,
-										'receipt_email' => $email,
-										'currency' => $stripe_currency,
+										'card' => $card_id->id,
+										'description' => $email,
+										'currency' => $currency,
 										'application_fee' => $fee),
 										$sc_accesstoken);
 									}
@@ -4397,13 +4878,11 @@ function idmember_create_customer() {
 								else {
 									try {
 										$newcharge = \Stripe\Charge::create(array(
-										'customer' => $custid,
 										'amount' => $price,
 										'customer' => $custid,
-										'source' => $card_id,
-										'description' => $fname . ' ' . $lname . ' - ' . $level_data->level_name,
-										'receipt_email' => $email,
-										'currency' => $stripe_currency));
+										'card' => $card_id,
+										'description' => $email,
+										'currency' => $currency));
 									}
 									catch (\Stripe\Error\Card $e) {
 										// Card was declined
@@ -4497,8 +4976,7 @@ function idmember_create_customer() {
 						else if ($source == 'authorize.net') {
 							// Updating the profile address in case of AVS
 							$ID_Authorize_Net->update_payment_profile_address($_POST['Fields']);
-
-							$price = str_replace(',', '', $level_data->level_price);
+							 $price = str_replace(',', '', $level_data->level_price);
 							$transaction = new AuthorizeNetTransaction;
 							$transaction->amount = $price;
 							$transaction->customerPaymentProfileId = $custid;
@@ -4507,6 +4985,7 @@ function idmember_create_customer() {
 
 							$request = new AuthorizeNetCIM;
 							$response = $request->createCustomerProfileTransaction('AuthCapture', $transaction);
+
 							if ($response->isOk()) {
 								$transactionResponse = $response->getTransactionResponse();
 								$txn_id = $transactionResponse->transaction_id;
@@ -4514,10 +4993,8 @@ function idmember_create_customer() {
 								// echo "transaction done\n";
 							} else if ($response->isError()) {
 								$success = false;
-								print_r(json_encode(array('response' => $response->getResultCode(), 'message' => $response->getMessageText().': '.__LINE__)));
-								exit;
-								// echo "transaction error: ".$response->getMessageText()."\n";
-							}
+								// echo "transaction error: ".$response->getErrorMessage()."\n";
+							} 
 						}
 						// Charging using token we have and getting transaction id
 						$txn_id = apply_filters('idc_charge_using_token_checkout', ((isset($txn_id)) ? $txn_id : ''), (isset($success) ? $success : false), array(
@@ -4530,6 +5007,7 @@ function idmember_create_customer() {
 							"source" => $source,
 							"extra_fields" => $_POST['Fields']
 						));
+						
 					}
 					else {
 						// echo "do not use token\n";
@@ -4540,7 +5018,9 @@ function idmember_create_customer() {
 									$fee = 0;
 									$sc_settings = get_option('md_sc_settings');
 									if (!empty($sc_settings)) {
-										$sc_settings = maybe_unserialize($sc_settings);
+										if (!is_array($sc_settings)) {
+											$sc_settings = unserialize($sc_settings);
+										}
 										if (is_array($sc_settings)) {
 											$app_fee = apply_filters('idc_app_fee', $sc_settings['app_fee'], $level_data);
 											$fee_type = apply_filters('idc_fee_type', $sc_settings['fee_type']);
@@ -4567,11 +5047,10 @@ function idmember_create_customer() {
 									}
 									try {
 										$newcharge = \Stripe\Charge::create(array(
-										//'customer' => $custid,
 										'amount' => $price,
-										'source' => $card_id->id,
-										'description' => $fname . ' ' . $lname . ' - ' . $level_data->level_name,
-										'currency' => $stripe_currency,
+										'card' => $card_id->id,
+										'description' => $email,
+										'currency' => $currency,
 										'application_fee' => $fee),
 										$sc_accesstoken);
 									}
@@ -4593,11 +5072,10 @@ function idmember_create_customer() {
 									try {
 										//echo 'use customer';
 										$newcharge = \Stripe\Charge::create(array(
-										'customer' => $custid,
 										'amount' => $price,
-										'description' => $fname . ' ' . $lname . ' - ' . $level_data->level_name,
-										'receipt_email' => $email,
-										'currency' => $stripe_currency));
+										'customer' => $custid,
+										'description' => $email,
+										'currency' => $currency));
 									}
 									catch (\Stripe\Error\Card $e) {
 										// Card was declined
@@ -4702,7 +5180,6 @@ function idmember_create_customer() {
 
 							$request = new AuthorizeNetCIM;
 							$response = $request->createCustomerProfileTransaction('AuthCapture', $transaction);
-							print_r($response).' '.__LINE__;
 							if ($response->isOk()) {
 								// echo "transaction done\n";
 								$transactionResponse = $response->getTransactionResponse();
@@ -4710,9 +5187,129 @@ function idmember_create_customer() {
 								$success = true;
 							} else if ($response->isError()) {
 								$success = false;
-								// echo "transaction error: ".$response->getMessageText()."\n";
-							}
+								// echo "transaction error: ".$response->getErrorMessage()."\n";
+							} 
 						}
+				/********************* Create Splash transaction If transaction type capture **********************/
+					    if ($source == 'Splash')
+						{
+							//echo 'hello--';
+						   $price = str_replace(',', '', $level_data->level_price);						
+					       if($tokenId)
+						   {
+							   //echo $tokenId;
+							  if($paymentnature=='One Time Payment')
+							  {		
+										$object = splash_txns_create($merchantId,$tokenId,$price,$currency,$paybymethod);										
+										try {
+											  $object->create();
+											  $response		=	$object->getResponse();
+											  $txn_id = $response[0]->id;
+										}
+										catch (\SplashPayments\Exceptions\Base $e) {
+										  decline_payment_save($fname,$lname,$email,$address1,$city,$zip,$state,$price,$product_id_checkout,$currency);
+										         $error = $object->getErrors();												
+																if($error)
+																{
+																	$message = $error[0]['msg'];
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}
+																
+																exit;
+										}
+							  }
+							  else
+							  {
+								  //echo 'multiple';
+								  $object = splash_plan_create($merchantId,$price,$no_of_month_plan,$currency,$fname,$lname,$camp_id_dynamic);
+								    try {
+											  $object->create();
+											  $response		=	$object->getResponse();
+											  $plan_id = $response[0]->id;
+										}
+										catch (\SplashPayments\Exceptions\Base $e) {
+										  
+										         $error = $object->getErrors();												
+																if($error)
+																{
+																	$message = $error[0]['msg'];
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}
+																
+																exit;
+										}
+										
+								 if($plan_id)
+								 {
+									 $object = splash_subscription_create($plan_id,$plan_start_date,$no_of_month_plan);
+									 try {
+											  $object->create();
+											  $response		=	$object->getResponse();
+											  $sub_id = $response[0]->id;
+										}
+										catch (\SplashPayments\Exceptions\Base $e) {
+										  
+										         $error = $object->getErrors();												
+																if($error)
+																{
+																	$message = $error[0]['msg'];
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}
+																
+																exit;
+										}
+								 }
+								// echo $txn_id;
+								 if($sub_id)
+								 {
+									$object = auth_transaction_emi($merchantId,$tokenId,$price,$currency,$no_of_month_plan,$sub_id);
+										try
+										{
+											$object->create();
+											$response		=	$object->getResponse();
+											$txn_id = $response[0]->id;
+											
+										}
+										catch (\SplashPayments\Exceptions\Base $e) 
+										{
+											//echo 'error';
+											$error = $object->getErrors();
+											
+																if($error)
+																{
+																	$message = $error[0]['msg'];
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}
+																
+																exit;
+										}  
+									 									 									 
+									 
+									$object = splash_subscription_token_create($sub_id,$tokenId);
+									 try {
+											  $object->create();
+											  $response		=	$object->getResponse();
+											  $subscription_tokn_id = $response[0]->id;
+										}
+										catch (\SplashPayments\Exceptions\Base $e) {
+										  
+										         $error = $object->getErrors();												
+																if($error)
+																{
+																	$message = $error[0]['msg'];
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}
+																
+																exit;
+										} 
+								 }
+							  }
+
+							}						
+					    }
+					
+				/**************************************************************************/
+						
 						else if ($source == 'mc') {
 							$txn_id = 'mc_'.time();
 							$type = 'order';
@@ -4737,16 +5334,542 @@ function idmember_create_customer() {
 						$txn_id = $newcharge->id;
 					}
 				}
-				else if ($txn_type == 'preauth') {
+				else if ($txn_type == 'preauth') 
+				{
+					//echo 'die here';
+					//die;
 					// just store customer so we can process later
 					// echo "txn_type: ".$txn_type."\n";
 					$preauth = true;
-					if ($source == 'mc') {
+					if($source == 'mc') 
+					{
 						$txn_id = 'mc_'.time();
 					}
-					else {
+					else 
+					{
 						$txn_id = 'pre';
 					}
+					
+		/**************************** Stripe Payment ******************************/
+					    if ($source == 'stripe') 
+						{
+							 $price = str_replace(',', '', $level_data->level_price)*100;
+			              // die;
+							try
+							{
+							  $newtokn = \Stripe\Token::create(array(
+								  "card" => array(
+													"number" => $cc_number,
+													"exp_month" => $exp_month,
+													"exp_year" => $exp_year,
+													"cvc" => $cc_code,
+													"address_city" => $city,
+													"address_line1" => $address1,
+													"address_state" => $state,
+													"address_zip" => $zip,
+													"name" => $fname.' '.$lname
+												 )
+						    	));
+								
+								$newtokn_id = $newtokn->id;
+						    }
+							catch(\Stripe\Error\Card $e) 
+							{
+								// Card was declined
+								$jsonbody = $e->getJsonBody();								
+								$message = $jsonbody['error']['message'].' '.__LINE__;
+								print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+								exit;
+							}
+							catch(\Stripe\Error\InvalidRequest $e) 
+							{
+								$jsonbody = $e->getJsonBody();							
+								$message = $jsonbody['error']['message'].' '.__LINE__;
+								print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+								exit;
+							}
+							
+							if(isset($newtokn_id) && isset($custid))
+							{								   
+							   $customer = \Stripe\Customer::retrieve($custid);
+                               $new_card =  $customer->sources->create(array("source" => $newtokn_id));	
+                               $card_id = $new_card->id;
+							   
+							   $customer->default_source = $card_id; 
+                               $customer->save();						
+							}
+							
+						  if($paymentnature == 'One Time Payment')
+						  {
+                            $dest_amount = round((($price/100)*($stripe_percentage/100)),2)*100+($stripe_cents);
+							
+							if(isset($card_id))
+							{
+									try 
+									{ 
+											$newcharge = \Stripe\Charge::create(array(
+											'amount' => $price,
+											'customer' => $custid,
+											'card' => $card_id,
+											'description' => $email,
+											'capture' => false,
+											'currency' => $currency_main,
+											'destination' => array(
+																	"account" => $stripe_connected_account_id,
+																	'amount' => $dest_amount
+																  )
+											
+											));
+									
+                                        $txn_id = $newcharge->id;									
+											
+									}
+									catch (\Stripe\Error\Card $e) 
+									{
+										// Card was declined
+										$jsonbody = $e->getJsonBody();									
+										$message = $jsonbody['error']['message'].' '.__LINE__;
+										print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+										exit;
+									}
+									catch (\Stripe\Error\InvalidRequest $e) 
+									{
+										//echo 'hello';
+										$jsonbody = $e->getJsonBody();										
+										$message = $jsonbody['error']['message'].' '.__LINE__;
+										if($currency=='rub' && $price<2900)
+										{
+											print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => 'Minimum Amount should be p.29')));
+										}
+										else if($currency=='ils' && $price<200)
+										{
+											print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => 'Minimum Amount should be 2.00 ILS')));
+										}
+										else
+										{
+											print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+										}
+										
+										exit;
+									}
+						    }
+						  }
+						  else if(isset($card_id))
+						  {
+							 $price2 = $price/$no_of_month_plan;							
+							 //$price1 = convertCurrency($price2, $currency, "USD");
+							 $price3 = round($price2,2);
+								$dest_amt = round(($price3*($stripe_percentage/100))+($stripe_cents));
+                                 /*   try 
+							        {
+											$newcharge = \Stripe\Charge::create(array(
+											'amount' => $price3,
+											'customer' => $custid,
+											'card' => $card_id,
+											'description' => $email,
+											'capture' => false,
+											'currency' => $currency_main,
+											'destination' => array(
+																	"account" => $stripe_connected_account_id,
+																	'amount' => $dest_amt
+																  )
+											));
+									
+                                        $txn_id = $newcharge->id;									
+											
+									}
+									catch (\Stripe\Error\Card $e) 
+									{
+										// Card was declined
+										$jsonbody = $e->getJsonBody();									
+										$message = $jsonbody['error']['message'].' '.__LINE__;
+										print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+										exit;
+									}
+									catch (\Stripe\Error\InvalidRequest $e) 
+									{
+										$jsonbody = $e->getJsonBody();										
+										$message = $jsonbody['error']['message'].' '.__LINE__;
+										if($currency=='rub' && $price3<2900)
+										{
+											print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => 'One Time Minimum Amount should be p.29')));
+										}
+										else if($currency=='ils' && $price3<200)
+										{
+											print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => 'One Time Minimum Amount should be 2.00 ILS')));
+										}
+										else
+										{
+											print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+										}
+										exit;
+									}
+									
+								if(isset($txn_id))
+								{*/
+									try 
+							        {
+											$newplan = \Stripe\Plan::create(array(
+											'amount' => $price3,
+											"interval" => "month",
+                                             "name" => "Campaign",
+											'currency' => $currency ));
+									
+                                        $plan_id = $newplan->id;
+                                      
+									}
+									catch(\Stripe\Error\Card $e) 
+									{
+										// Card was declined
+										$jsonbody = $e->getJsonBody();									
+										$message = $jsonbody['error']['message'].' '.__LINE__;
+										print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+										exit;
+									}
+									catch(\Stripe\Error\InvalidRequest $e) 
+									{
+										$jsonbody = $e->getJsonBody();										
+										$message = $jsonbody['error']['message'].' '.__LINE__;
+										if($currency=='rub' && $price3<2900)
+										{
+											print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => 'One Time Minimum Amount should be p.29')));
+										}
+										else if($currency=='ils' && $price3<200)
+										{
+											print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => 'One Time Minimum Amount should be 2.00 ILS')));
+										}
+										else
+										{
+											print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+										}
+										exit;
+									}
+								//}
+								if(isset($plan_id))
+								{
+									//\Stripe\Stripe::setApiKey('sk_live_WZ7vxu2nbVQxw2uuomP5CRcz');
+									 $total_mon = $no_of_month_plan-1;
+									try 
+							        {
+										$newsubscription = \Stripe\Subscription::create(array(
+											'customer' => $custid,
+											"items" => array(
+																array(
+																  "plan" => $plan_id,
+																),
+															),
+											'source' => $card_id,
+											'metadata' => array('camp_id'=>$camp_id_dynamic),
+											'trial_end' =>   null,
+											'trial_period_days' => 2
+											
+										),
+										array("stripe_account" => "acct_1CJyfbDoAu4leMeu")
+										
+										);
+									
+                                        $sub_id = $newsubscription->id;
+                                        $txn_id= $newsubscription->id;
+                                       																				
+									}
+									catch (\Stripe\Error\Card $e) 
+									{
+										// Card was declined
+										$jsonbody = $e->getJsonBody();	
+                                       									 
+										$message = $jsonbody['error']['message'].' '.__LINE__;
+										print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+										exit;
+									}
+									catch (\Stripe\Error\InvalidRequest $e) 
+									{
+										$jsonbody = $e->getJsonBody();	
+                                        									
+										$message = $jsonbody['error']['message'].' '.__LINE__;
+										print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+										exit;
+									}
+								}
+								
+						  }						
+							
+						}
+					
+					/************* AuthorizeNet *********/
+				
+					    if ($source == "authorize.net") 
+						{			                              
+					        $price = str_replace(',', '', $level_data->level_price);						
+                            
+							if($paymentnature=='One Time Payment')
+							{
+								
+							    // echo 'one time';
+								$ID_Authorize_Net->update_payment_profile_address($_POST['Fields']);
+
+								//$price = str_replace(',', '', $level_data->level_price);
+								$transaction = new AuthorizeNetTransaction;
+								$transaction->amount = $price;
+								$transaction->customerPaymentProfileId = $custid;
+								$transaction->customerProfileId = $customerProfileId;
+								$transaction->order->invoiceNumber = time();
+
+								$request = new AuthorizeNetCIM;
+								$response = $request->createCustomerProfileTransaction('AuthOnly', $transaction);
+								if ($response->isOk()) {
+									// echo "transaction done\n";
+									$transactionResponse = $response->getTransactionResponse();
+									$txn_id = $transactionResponse->transaction_id;
+									$success = true;
+								} else if ($response->isError()) {
+									$success = false;
+									// echo "transaction error: ".$response->getErrorMessage()."\n";
+									print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => "Transaction could not be made<br>".$response->getErrorMessage(), "line" => __LINE__)));
+											exit();
+								}
+							}
+							else
+							{
+								//echo 'recurring paymentt';
+								  $price2 = $price/$no_of_month_plan;							
+								    	
+                                  $price = round($price2,2);
+									
+									$recurring_type_units = array(
+										'weekly' => 7,
+										'monthly' => 1,
+										'annual' => 365
+									);
+									
+									$timestamp_start = strtotime('+1 month');
+									
+									$subscription = new AuthorizeNet_Subscription;
+									$subscription->name = $level_data->level_name;
+									$subscription->intervalLength = $recurring_type_units['monthly'];
+									$subscription->intervalUnit = 'months';
+									// Start date will be 2nd interval of the interval length as 1st payment will be made by CIM so adding it to start date
+									$subscription->startDate = date('Y-m-d', $timestamp_start);
+									$subscription->amount = $price;
+									$subscription->totalOccurrences = $no_of_month_plan-1;
+									$subscription->creditCardCardNumber = $cc_number;
+									$subscription->creditCardExpirationDate = $cc_expiry;
+									$subscription->creditCardCardCode = $cc_code;
+									$subscription->billToFirstName = $fname;
+									$subscription->billToLastName = $lname;
+
+									// Create the subscription.
+									$request = new AuthorizeNetARB;
+									$response = $request->createSubscription($subscription);
+									
+									if ($response->isOk()) {
+										// echo "subscription is new\n";
+										$subscription_id = $response->getSubscriptionId();
+										$sub_id = $subscription_id;
+										$success = true;
+										$type = 'recurring';
+										$new_sub = true;
+
+										// Making the 1st transaction using CIM
+										//$price = str_replace(',', '', $level_data->level_price);
+										$transaction = new AuthorizeNetTransaction;
+										$transaction->amount = $price;
+										$transaction->customerPaymentProfileId = $custid;
+										$transaction->customerProfileId = $customerProfileId;
+										$transaction->order->invoiceNumber = time();
+
+										$requestFirstPayment = new AuthorizeNetCIM;
+										$responseFirstPayment = $requestFirstPayment->createCustomerProfileTransaction('AuthOnly', $transaction);
+										if ($responseFirstPayment->isOk()) {
+											// 1st transaction is successful
+											$transactionResponse = $responseFirstPayment->getTransactionResponse();
+											$txn_id = $transactionResponse->transaction_id;
+										} else if ($responseFirstPayment->isError()) {
+											// There is some error, print that error
+											print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => "First transaction could not be made<br>".$responseFirstPayment->getErrorMessage(), "line" => __LINE__)));
+											exit();
+										}
+									} 
+									else 
+									{
+										//echo 'new/////////';
+										// If such subscription already created. Then get it's id
+										if ($response->getMessageCode() == "E00012") {
+											// echo "payment needs updation. already exists\n";
+											$message = $response->getMessageText();
+											$txn_id = filter_var($message, FILTER_SANITIZE_NUMBER_INT);
+											$subscription_id = $txn_id;
+											$sub_id = $txn_id;
+											// Unsetting some variables that can't be updated
+											$subscription->intervalLength = '';
+											$subscription->intervalUnit = '';
+											// Sending request to update subscription
+											$request = new AuthorizeNetARB;
+											$responseUpdate = $request->updateSubscription($txn_id, $subscription);
+											// If success
+											if ($responseUpdate->isOk()) {
+												$type = 'recurring';
+												$success = true;
+												$new_sub = false;
+
+												// Making the 1st transaction using CIM for this subscription
+											//	$price = str_replace(',', '', $level_data->level_price);
+												$transaction = new AuthorizeNetTransaction;
+												$transaction->amount = $price;
+												$transaction->customerPaymentProfileId = $custid;
+												$transaction->customerProfileId = $customerProfileId;
+												$transaction->order->invoiceNumber = time();
+
+												$requestFirstPayment = new AuthorizeNetCIM;
+												$responseFirstPayment = $requestFirstPayment->createCustomerProfileTransaction('AuthOnly', $transaction);
+												if ($responseFirstPayment->isOk()) {
+													// 1st transaction is successful
+													$transactionResponse = $responseFirstPayment->getTransactionResponse();
+													$txn_id = $transactionResponse->transaction_id;
+												} else if ($responseFirstPayment->isError()) {
+													// There is some error, print that error
+													print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => "First transaction could not be made<br>".$responseFirstPayment->getErrorMessage(), "line" => __LINE__)));
+													exit();
+												}
+											} else {
+												// There is some error, print that error
+												print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $responseUpdate->getErrorMessage(), "line" => __LINE__)));
+												exit();
+											}
+										} else {
+											print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $response->getErrorMessage(), "line" => __LINE__)));
+											exit();
+										}
+									}
+
+									if (isset($user_id) && $new_sub) {
+										// echo 'it\'s here and creating a new subscription';
+										$new_sub = new ID_Member_Subscription(null, $user_id, $level_data->id, $subscription_id, $source);
+										$filed_sub = $new_sub->add_subscription();
+									}
+									
+									$start = time();
+									$new_order = '';
+							}
+							//die;
+						}
+					
+					
+					/***************** Create Splash transaction If transaction type preauth **********************/
+					if ($source == 'Splash'){
+						 $price = str_replace(',', '', $level_data->level_price);
+						
+					    if($tokenId)
+						{
+							if($paymentnature=='One Time Payment')
+							{				
+										$object = splash_txns_create($merchantId,$tokenId,$price,$currency,$paybymethod);										
+										try {
+											  $object->create();
+											  $response		=	$object->getResponse();
+											 $txn_id = $response[0]->id;
+										}
+										catch (\SplashPayments\Exceptions\Base $e) {
+										 decline_payment_save($fname,$lname,$email,$address1,$city,$zip,$state,$price,$product_id_checkout,$currency);
+										         $error = $object->getErrors();
+											
+																if($error)
+																{
+																	$message = $error[0]['msg'];
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}
+																
+																exit;
+										}
+						    }else
+							  {
+								  
+								  $object = splash_plan_create($merchantId,$price,$no_of_month_plan,$currency,$fname,$lname,$camp_id_dynamic);
+								  try {
+											  $object->create();
+											  $response		=	$object->getResponse();
+											  $plan_id = $response[0]->id;
+										}
+										catch (\SplashPayments\Exceptions\Base $e) {
+										  
+										         $error = $object->getErrors();												
+																if($error)
+																{
+																	$message = $error[0]['msg'];
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}
+																
+																exit;
+										}
+										
+								 if($plan_id)
+								 {
+									 $object = splash_subscription_create($plan_id,$plan_start_date,$no_of_month_plan);
+									 try {
+											  $object->create();
+											  $response		=	$object->getResponse();
+											  $sub_id = $response[0]->id;
+										}
+										catch (\SplashPayments\Exceptions\Base $e) {
+										  
+										         $error = $object->getErrors();												
+																if($error)
+																{
+																	$message = $error[0]['msg'];
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}
+																
+																exit;
+										}
+								 }
+								 if($sub_id)
+								 {
+									$object = auth_transaction_emi($merchantId,$tokenId,$price,$currency,$no_of_month_plan,$sub_id);
+										try
+										{
+											$object->create();
+											$response		=	$object->getResponse();
+											$txn_id = $response[0]->id;
+										}
+										catch (\SplashPayments\Exceptions\Base $e) 
+										{
+											//echo 'error';
+											$error = $object->getErrors();
+											
+																if($error)
+																{
+																	$message = $error[0]['msg'];
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}
+																
+																exit;
+										}  
+									 									 
+									 
+									$object = splash_subscription_token_create($sub_id,$tokenId);
+									 try {
+											  $object->create();
+											  $response		=	$object->getResponse();
+											  $subscription_tokn_id = $response[0]->id;
+										}
+										catch (\SplashPayments\Exceptions\Base $e) {
+										  
+										         $error = $object->getErrors();												
+																if($error)
+																{
+																	$message = $error[0]['msg'];
+																	print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+																}
+																
+																exit;
+										} 
+								 }
+							  }
+
+						}
+					
+					}
+					
+					/*************************************************/
 					$txn_id = apply_filters('idc_preauth_charge', $txn_id);
 					$type = 'preauth';
 				}
@@ -4755,7 +5878,9 @@ function idmember_create_customer() {
 				//echo 'recurring';
 				// We use Stripe if active
 				// Authorize.Net though supports recurring payments, so if it's selected
-				if ($source == "authorize.net") {
+				if ($source == "authorize.net") 
+				{
+					//echo 'here enter';
 					$price = str_replace(',', '', $level_data->level_price);
 					$recurring_type_units = array(
 						'weekly' => 7,
@@ -4813,7 +5938,7 @@ function idmember_create_customer() {
 							$txn_id = $transactionResponse->transaction_id;
 						} else if ($responseFirstPayment->isError()) {
 							// There is some error, print that error
-							print_r(json_encode(array('response' => $responseFirstPayment->getResultCode(), 'message' => "First transaction could not be made<br>".$responseFirstPayment->getMessageText(), "line" => __LINE__)));
+							print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => "First transaction could not be made<br>".$responseFirstPayment->getErrorMessage(), "line" => __LINE__)));
 							exit();
 						}
 					} else {
@@ -4851,16 +5976,16 @@ function idmember_create_customer() {
 									$txn_id = $transactionResponse->transaction_id;
 								} else if ($responseFirstPayment->isError()) {
 									// There is some error, print that error
-									print_r(json_encode(array('response' => $responseFirstPayment->getResultCode(), 'message' => "First transaction could not be made<br>".$responseFirstPayment->getMessageText().' '.__LINE__, "line" => __LINE__)));
+									print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => "First transaction could not be made<br>".$responseFirstPayment->getErrorMessage(), "line" => __LINE__)));
 									exit();
 								}
 							} else {
 								// There is some error, print that error
-								print_r(json_encode(array('response' => $responseUpdate->getResultCode(), 'message' => $responseUpdate->getMessageText().' '.__LINE__, "line" => __LINE__)));
+								print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $responseUpdate->getErrorMessage(), "line" => __LINE__)));
 								exit();
 							}
 						} else {
-							print_r(json_encode(array('response' => $response->getResultCode(), 'message' => $response->getMessageText().' '.__LINE__, "line" => __LINE__)));
+							print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $response->getErrorMessage(), "line" => __LINE__)));
 							exit();
 						}
 					}
@@ -4873,7 +5998,7 @@ function idmember_create_customer() {
 					
 					$start = time();
 					$new_order = '';
-				}
+				}				
 				else {
 					try {
 						$c = \Stripe\Customer::retrieve($custid);
@@ -4885,7 +6010,7 @@ function idmember_create_customer() {
 						exit;
 					}
 					try {
-						// we now have a customer and need to see if we are using Stripe Connect
+						// we now have a customer and need to see if we are using Stripe Conect
 						// if using Stripe Connect, we have to store the customer on connected user's account also
 						if (!empty($sc_accesstoken)) {
 							\Stripe\Stripe::setApiKey($sc_accesstoken);
@@ -4894,11 +6019,6 @@ function idmember_create_customer() {
 							if (!empty($customer_idcopy)) {
 								try {
 									$ccopy = \Stripe\Customer::retrieve($customer_idcopy);
-									if (empty($ccopy->default_source)) {
-										// add original token as default source for new shared customer
-										$ccopy->source = $token;
-										$ccopy->save();
-									}
 								}
 								catch (Exception $e) {
 									$jsonbody = $e->getJsonBody();
@@ -4922,7 +6042,7 @@ function idmember_create_customer() {
 								}
 								try {
 									$ccopy = \Stripe\Customer::create(array(
-									'description' => $fname . ' ' . $lname,
+									'description' => $email,
 									'email' => $email,
 									'source' => $tokencopy->id));
 									// $ccopy = $newcust;
@@ -5011,7 +6131,8 @@ function idmember_create_customer() {
 							}
 						}
 					}
-					try {
+					try 
+					{
 						$sub_args = array(
 							'customer' => (isset($customer_idcopy) ? $customer_idcopy : $custid),
 							'plan' => $plan,
@@ -5063,10 +6184,7 @@ function idmember_create_customer() {
 						exit;
 					}
 					//print_r($sub);
-					if ($sub->status == 'active' || $sub->status == 'trialing') {
-						if ($sub->status == 'trialing') {
-							$trial = true;
-						}
+					if ($sub->status == 'active') {
 						$txn_id = $sub->plan->id;
 						//echo $txn_id;
 						$success = true;
@@ -5084,7 +6202,8 @@ function idmember_create_customer() {
 				}
 			}
 			$success = apply_filters('idc_checkout_success', (isset($success) ? $success : false), $txn_id, $source);
-			if ((isset($success) && $success == true) || (isset($preauth) && $preauth == true)) {
+			if((isset($success) && $success == true) || (isset($preauth) && $preauth == true)) 
+			{
 				// this handles our custom post fields, if any
 				if (isset($_POST['Fields'])) {
 					$fields = $_POST['Fields'];
@@ -5094,60 +6213,87 @@ function idmember_create_customer() {
 				}
 				//echo 'success';
 				$paykey = md5($email.time());
-				if (isset($newuser)) {
+				if (isset($newuser)) 
+				{
 					//echo 'new user';
 					// user doesn't exist at all, so we create and insert in both
-					if (!empty($pw)) {
-						// only create user if we have a password and intend to create an account
-						$user_id = wp_insert_user(array('user_email' => $email, 'user_login' => $email, 'user_pass' => $pw, 'first_name' => $fname, 'last_name' => $lname, 'display_name' => $fname));
-					}
+				  //	$userInfo		=	array('user_email' => $email, 'user_login' => $email, 'user_pass' => $pw, 'first_name' => $fname, 'last_name' => $lname, 'display_name' => $fname);
+					
+					$user_id = wp_insert_user(array('user_email' => $email, 'user_login' => $email, 'user_pass' => $pw, 'first_name' => $fname, 'last_name' => $lname, 'display_name' => $fname));
 					if (!empty($user_id)) {
-						if ($source == 'fd') {
-							$fd_card_details['fd_token'] = $fd_token;
-							update_user_meta($user_id, 'fd_card_details', $fd_card_details);
-							$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => array());
-						}
-						else if ($source == 'authorize.net') {
-							$authorizenet_customer_ids['authorizenet_payment_profile_id'] = $custid;
-							$authorizenet_customer_ids['authorizenet_profile_id'] = $customerProfileId;
-							update_user_meta($user_id, 'authorizenet_profile_id', $authorizenet_customer_ids);
-							$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => array());
-						}
-						else {
-							$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => (isset($custid) ? array('customer_id' => $custid) : array()));
-						}
-						// #dev
-						$user = apply_filters('idc_user_update_checkout', $user, $source);
-
-						$new = ID_Member::add_user($user);
-						// it's important this happens after member is added to prevent duplicate memberships
 						do_action('idc_register_success', $user_id, $email);
 					}
-					
-					if (!$recurring) {
+					if ($source == 'fd') {
+						$fd_card_details['fd_token'] = $fd_token;
+						update_user_meta($user_id, 'fd_card_details', $fd_card_details);
+						$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => array());
+					}
+					else if ($source == 'authorize.net') {
+						$authorizenet_customer_ids['authorizenet_payment_profile_id'] = $custid;
+						$authorizenet_customer_ids['authorizenet_profile_id'] = $customerProfileId;
+						update_user_meta($user_id, 'authorizenet_profile_id', $authorizenet_customer_ids);
+						$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => array());
+					}
+					/******************** Add Splash customer id into wp user account ****************************/
+					else if ($source == 'Splash') {
+						$splash_customer_ids['splash_payment_profile_id'] = $custid;	
+						$splash_customer_ids['splash_payment_apii_id'] = $apiKey;
+						update_user_meta($user_id, 'splash_profile_id', $splash_customer_ids);
+						$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => array());
+					}
+										
+					/*********************************************************/
+					else {
+						$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => (isset($custid) ? array('customer_id' => $custid) : array()));
+					}
+					$user = apply_filters('idc_user_update_checkout', $user, $source);
+
+					$new = ID_Member::add_user($user);
+					if(!$recurring) {
 						$order = new ID_Member_Order(null, $user_id, $product_id, null, $txn_id, '', 'active', $e_date, $level_data->level_price);
-						if ($renewable) {
-							// cancel last order #devnote move to hook / price doesn't account for pwyw or donations
+					//echo 'renew====';
+					//	echo $renewable;
+						if($renewable) {
+							// cancel last order
 							$order->price = $level_data->renewal_price;
 							$last_order = new ID_Member_Order(null, $user_id, $level_data->id);
 							$get_last_order = $last_order->get_last_order();
-							if (isset($get_last_order)) {
-								$lo_time = strtotime($get_last_order->e_date);
-								$order->e_date = idc_set_order_edate($level_data, $lo_time);
+							if(isset($get_last_order)) {
+								$last_order_edate = $get_last_order->e_date;
+								$lo_time = strtotime($last_order_edate);
+								$no_time = strtotime('+1 years', $lo_time);
+								$order->e_date = date('Y-m-d h:i:s', $no_time);
 							}
+							/*$last_order = new ID_Member_Order(null, $user_id, $level_data->id);
+							$get_it = $last_order->get_last_order();
+							if (!empty($get_it)) {
+								$canceled_order_id = $get_it->id;
+								$canceled_order = new ID_Member_Order($canceled_order_id);
+								$get_canceled_order = $canceled_order->get_order();
+								$canceled_order_edate = $get_canceled_order->e_date;
+								$cancel_it = $canceled_order->cancel_status($canceled_order_edate);
+							}*/
 						}
 						$new_order = $order->add_order();
-						if (empty($user_id)) {
-							do_action('idc_guest_checkout_order', $new_order, $customer);
-						}
-						if (is_multisite() && !empty($user_id)) {
-							// #devnote add to webhook handler?
+						global $wpdb;
+						
+						if(isset($currency_symbol))	
+						{
+							$wpdb->update('wp_memberdeck_orders',
+										array('currency_symbol'=>stripslashes($currency_symbol),'currency'=>stripslashes($currency)),
+										array('id'=> $new_order)
+										
+									 );
+						}	
+					
+						if (is_multisite()) {
 							$blog_id = get_current_blog_id();
 							//echo $blog_id;
 							add_user_to_blog($blog_id, $user_id, 'subscriber');
-							MD_Keys::set_licenses($user_id, $product_id);
 						}
-						if (isset($preauth) && $preauth == true) {
+						MD_Keys::set_licenses($user_id, $product_id);
+						if (isset($preauth) && $preauth == true) 
+						{
 							if (isset($use_token) && $use_token == true) {
 								$charge_token = apply_filters('idc_card_id_checkout', $card_id, $use_token, $preauth = true, $source);
 							}
@@ -5174,16 +6320,23 @@ function idmember_create_customer() {
 							if ($source == 'authorize.net') {
 								// Updating the profile address in case of AVS
 								$ID_Authorize_Net->update_payment_profile_address($_POST['Fields']);
-								$charge_token = $ID_Authorize_Net->create_charge_token($level_data->level_price);
+								//echo '======charge token========';
+								//die;
+								//$charge_token = $ID_Authorize_Net->create_charge_token($level_data->level_price);
+								
+								
+							//	die;
 							}
 							//echo 'sending a preorder';
+							$payment_date = date("m/d/Y H:i:s", strtotime('-1 month', strtotime($plan_start_date)));
+							
 							$preorder_entry = ID_Member_Order::add_preorder($new_order, $charge_token, $source);
-							do_action('memberdeck_preauth_success', (isset($user_id) ? $user_id : null), $new_order, $paykey, $fields, $source);
-							do_action('memberdeck_preauth_receipt', (isset($user_id) ? $user_id : null), $level_data->level_price, $product_id, $source, $new_order);
+							do_action('memberdeck_preauth_receipt', $user_id, $level_data->level_price, $product_id, $source, $new_order,$product_id_camp,$paymentnature,$no_of_month_plan,$payment_date);
+							do_action('memberdeck_preauth_success', $user_id, $new_order, $paykey, $fields, $source);
 						}
 						else {
-							do_action('memberdeck_payment_success', (isset($user_id) ? $user_id : null), $new_order, $paykey, $fields, $source);
-							do_action('idmember_receipt', (isset($user_id) ? $user_id : null), $level_data->level_price, $product_id, $source, $new_order, $fields);
+							do_action('idmember_receipt', $user_id, $level_data->level_price, $product_id, $source, $new_order, $fields);
+							do_action('memberdeck_payment_success', $user_id, $new_order, $paykey, $fields, $source);
 						}
 					}
 					else {
@@ -5191,27 +6344,12 @@ function idmember_create_customer() {
 							$new_sub = new ID_Member_Subscription(null, $user_id, $level_data->id, $sub->id, $source);
 							$filed_sub = $new_sub->add_subscription();
 						}
-						/*if ($trial) {
-							$order = new ID_Member_Order(null, $user_id, $product_id, null, $txn_id, '', 'active', idc_set_order_edate($level_data), '0.00');
-							#devnote renewable options omitted
-							$new_order = $order->add_order();
-							if (empty($user_id)) {
-								do_action('idc_guest_checkout_order', $new_order, $customer);
-							}
-							if (is_multisite() && !empty($user_id)) {
-								// #devnote add to webhook handler?
-								$blog_id = get_current_blog_id();
-								//echo $blog_id;
-								add_user_to_blog($blog_id, $user_id, 'subscriber');
-								MD_Keys::set_licenses($user_id, $product_id);
-							}
-							do_action('memberdeck_payment_success', (isset($user_id) ? $user_id : null), $new_order, $paykey, $fields, $source);
-							do_action('idmember_receipt', (isset($user_id) ? $user_id : null), '0.00', $product_id, $source, $new_order, $fields);
-						}*/
 
 						// If payment gateway is Authorize.Net, do work here as IPN not available in Auth.Net
 						if ($source == "authorize.net") {
+							//echo 'here also enter';
 							if (isset($user_id)) {
+								//update_user_meta($user_id,'msg3',$msg);
 								$txn_check = ID_Member_Order::check_order_exists($txn_id);
 								if (empty($txn_check)) {
 									$level = $level_data;
@@ -5228,7 +6366,7 @@ function idmember_create_customer() {
 										// annually
 										$exp = strtotime('+1 years');
 									}
-									$e_date = date('Y-m-d H:i:s', $exp);
+									$e_date = date('Y-m-d h:i:s', $exp);
 									//fwrite($log, $e_date);
 									if ($level->limit_term == 1) {
 										$term_length = $level->term_length;
@@ -5250,7 +6388,7 @@ function idmember_create_customer() {
 					// echo 'not new user'."\n";
 					if (isset($match_user->access_level)) {
 						// echo 'is set 1'."\n";
-						$old_levels = maybe_unserialize($match_user->access_level);
+						$old_levels = unserialize($match_user->access_level);
 						if (is_array($old_levels)) {
 							foreach ($old_levels as $key['val']) {
 								$access_levels[] = $key['val'];
@@ -5285,6 +6423,17 @@ function idmember_create_customer() {
 							$authorizenet_customer_ids['authorizenet_profile_id'] = $customerProfileId;
 							update_user_meta($user_id, 'authorizenet_profile_id', $authorizenet_customer_ids);
 						}
+						
+						/******************** Splash ****************************/
+					else if ($source == 'Splash') {
+						$splash_customer_ids['splash_payment_profile_id'] = $custid;	
+                        $splash_customer_ids['splash_payment_apii_id'] = $apiKey;						
+						update_user_meta($user_id, 'splash_profile_id', $splash_customer_ids);
+						//$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => array());
+					}
+					
+					
+					/*********************************************************/
 					}
 					else {
 						if ($source == 'stripe') {
@@ -5301,6 +6450,15 @@ function idmember_create_customer() {
 							$authorizenet_customer_ids['authorizenet_profile_id'] = $customerProfileId;
 							update_user_meta($user_id, 'authorizenet_profile_id', $authorizenet_customer_ids);
 						}
+						/************ Add Splash customer id into wp user account if user exist ****************************/
+					    else if ($source == 'Splash') {
+							 $old_data = array('customer_id' => $custid);
+						     $splash_customer_ids['splash_payment_profile_id'] = $custid;						
+						     $splash_customer_ids['splash_payment_apii_id'] = $apiKey;						
+						    update_user_meta($user_id, 'splash_profile_id', $splash_customer_ids);
+					 	  //$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => array());
+					     }					
+					  /*********************************************************/
 						else {
 							$old_data = array();
 						}
@@ -5326,8 +6484,10 @@ function idmember_create_customer() {
 							$last_order = new ID_Member_Order(null, $user_id, $level_data->id);
 							$get_last_order = $last_order->get_last_order();
 							if (isset($get_last_order)) {
-								$lo_time = strtotime($get_last_order->e_date);
-								$order->e_date = idc_set_order_edate($level_data, $lo_time);
+								$last_order_edate = $get_last_order->e_date;
+								$lo_time = strtotime($last_order_edate);
+								$no_time = strtotime('+1 years', $lo_time);
+								$order->e_date = date('Y-m-d h:i:s', $no_time);
 
 								// Adding meta to last order that it's renewed
 								ID_Member_Order::update_order_meta($get_last_order->id, 'idc_order_renewed', '1');
@@ -5343,7 +6503,17 @@ function idmember_create_customer() {
 							}*/
 						}
 						$new_order = $order->add_order();
-
+                  
+                    global $wpdb;
+                    if(isset($currency_symbol))	
+					{
+						$wpdb->update('wp_memberdeck_orders',
+										array('currency_symbol'=>stripslashes($currency_symbol),'currency'=>stripslashes($currency)),
+										array('id'=> $new_order)
+										
+									 );
+					}						
+						
 						if (is_multisite()) {
 							$blog_id = get_current_blog_id();
 							//echo $blog_id;
@@ -5351,7 +6521,8 @@ function idmember_create_customer() {
 						}
 						MD_Keys::set_licenses($user_id, $product_id);
 						//echo 'order: '.$new_order;
-						if (isset($preauth) && $preauth == true) {
+						if (isset($preauth) && $preauth == true) 
+						{
 							// echo 'sending a preorder'."\n";
 							if (isset($use_token) && $use_token == true) {
 								$charge_token = apply_filters('idc_card_id_checkout', ((isset($card_id)) ? $card_id : ''), $use_token, $preauth = true, $source);
@@ -5369,7 +6540,8 @@ function idmember_create_customer() {
 							// If Auth.Net, make Auth Only transaction and send the id as charge token
 							if ($source == 'authorize.net') {
 								$ID_Authorize_Net->update_payment_profile_address($_POST['Fields']);
-								$charge_token = $ID_Authorize_Net->create_charge_token($level_data->level_price);
+								$charge_token = 'MYQC008';
+								//$charge_token = $ID_Authorize_Net->create_charge_token($level_data->level_price);
 							}
 							$charge_token = apply_filters('idc_preorder_charge_token', $charge_token, $txn_id, array(
 								"txn_type" => 'preauth',
@@ -5383,12 +6555,17 @@ function idmember_create_customer() {
 							));
 
 							$preorder_entry = ID_Member_Order::add_preorder($new_order, $charge_token, $source);
+
+                             $payment_date = date("m/d/Y H:i:s", strtotime('-1 month', strtotime($plan_start_date)));							
+							do_action('memberdeck_preauth_receipt', $user_id, $level_data->level_price, $product_id, $source,$new_order,$product_id_camp,$paymentnature,$no_of_month_plan,$payment_date);
 							do_action('memberdeck_preauth_success', $user_id, $new_order, $paykey, $fields, $source);
-							do_action('memberdeck_preauth_receipt', $user_id, $level_data->level_price, $product_id, $source, $new_order);
 						}
 						else {
-							do_action('memberdeck_payment_success', $user_id, $new_order, $paykey, $fields, $source);
+							//echo 'before order action';
 							do_action('idmember_receipt', $user_id, $level_data->level_price, $product_id, $source, $new_order, $fields);
+							//echo 'after receipt';
+							do_action('memberdeck_payment_success', $user_id, $new_order, $paykey, $fields, $source);
+							//echo 'after order action';
 						}
 					}
 					else {
@@ -5411,7 +6588,7 @@ function idmember_create_customer() {
 										// annually
 										$exp = strtotime('+1 years');
 									}
-									$e_date = date('Y-m-d H:i:s', $exp);
+									$e_date = date('Y-m-d h:i:s', $exp);
 									//fwrite($log, $e_date);
 									if ($level->limit_term == 1) {
 										$term_length = $level->term_length;
@@ -5425,28 +6602,20 @@ function idmember_create_customer() {
 									do_action('idmember_receipt', $user_id, $level->level_price, $product_id, 'authorize.net', $new_order, $fields);
 								}
 							}
-						}
-						else if ($source == 'stripe') {
-							/*if ($trial) {
-								$order = new ID_Member_Order(null, $user_id, $product_id, null, $txn_id, '', 'active', idc_set_order_edate($level_data), '0.00');
-								#devnote renewable options omitted
-								$new_order = $order->add_order();
-								if (empty($user_id)) {
-									do_action('idc_guest_checkout_order', $new_order, $customer);
-								}
-								if (is_multisite() && !empty($user_id)) {
-									// #devnote add to webhook handler?
-									$blog_id = get_current_blog_id();
-									//echo $blog_id;
-									add_user_to_blog($blog_id, $user_id, 'subscriber');
-									MD_Keys::set_licenses($user_id, $product_id);
-								}
-								do_action('memberdeck_payment_success', (isset($user_id) ? $user_id : null), $new_order, $paykey, $fields, $source);
-								do_action('idmember_receipt', (isset($user_id) ? $user_id : null), '0.00', $product_id, $source, $new_order, $fields);
-							}*/
+
 						}
 					}
 				}
+				
+			if($paymentnature != 'One Time Payment')
+			{
+				//echo 'hiii';
+				$price = str_replace(',', '', $level_data->level_price);
+				 $no_of_month_plan1 = $no_of_month_plan-2;
+				$end_date = date('m/d/Y', strtotime("+$no_of_month_plan1 months", strtotime($plan_start_date)));
+				$wpdb->insert('wp_multiple_payment',array('subscription_id'=>$sub_id,'months'=>$no_of_month_plan,'start_date'=>$plan_start_date,'user_id'=>$user_id,'end_date'=>$end_date,'transaction_id'=>$txn_id,'one_time_price'=>$price/$no_of_month_plan));
+			}	
+			
 				if ($crowdfunding) {
 					//echo 'order: '.$new_order;
 					if (isset($_POST['Fields'])) {
@@ -5472,7 +6641,7 @@ function idmember_create_customer() {
 								$created_at = $order->order_date;
 							}
 							else {
-								$created_at = date('Y-m-d H:i:s');
+								$created_at = date('Y-m-d h:i:s');
 							}
 							if (isset($preauth) && $preauth == true) {
 								$status = 'W';
@@ -5480,6 +6649,12 @@ function idmember_create_customer() {
 							else {
 								$status = 'C';
 							}
+                         
+						/* if($source == 'stripe' && $currency!=$currency_main)
+						{
+							//echo 'hello';							
+                           $price = convertCurrency($price, $currency, $currency_main);	
+                        }		*/				   
 							$pay_id = mdid_insert_payinfo($fname, $lname, $email, $project_id, $txn_id, $proj_level, $price, $status, $created_at);
 							// now need to insert mdid order
 							if (isset($pay_id)) {
@@ -5562,7 +6737,8 @@ function md_use_credit() {
 		$e_date = null;
 	}
 	else {
-		$e_date = idc_set_order_edate($level_data);
+		$exp = strtotime('+1 years');
+		$e_date = date('Y-m-d h:i:s', $exp);
 	}
 	$fname = esc_attr($customer['first_name']);
 	$lname = esc_attr($customer['last_name']);
@@ -5580,7 +6756,7 @@ function md_use_credit() {
 	$check_user = $member->check_user($email);
 	if (!empty($check_user)) {
 		if ($md_credits >= $level_data->credit_value) {
-			$user_id = $check_user->ID;
+			$user_id = $check_user->ID;		
 			$match_user = $member->match_user($user_id);
 			if (!empty($match_user)) {
 				// this user already exists within MemberDeck
@@ -5651,17 +6827,23 @@ function md_use_credit() {
 								$created_at = $order->order_date;
 							}
 							else {
-								$created_at = date('Y-m-d H:i:s');
+								$created_at = date('Y-m-d h:i:s');
 							}
 							$status = 'C';
 							// Setting price/credits based on the global currency display
 							// if (!empty($global_currency) && $global_currency == "credits") {
 							// 	$pay_id = mdid_insert_payinfo($fname, $lname, $email, $project_id, $txn_id, $proj_level, $level_data->credit_value, $status, $created_at);
 							// } else {
+							/* if($source == 'stripe' && $currency!=$currency_main)
+							{
+								//echo 'hello21';
+							   $price = convertCurrency($price, $currency, $currency_main);	
+							}	
+						*/
 							$pay_id = mdid_insert_payinfo($fname, $lname, $email, $project_id, $txn_id, $proj_level, $price, $status, $created_at);
 							// }
 							// now need to insert mdid order
-							if (isset($pay_id)) {
+							if(isset($pay_id)) {
 								$mdid_id = mdid_insert_order(null, $pay_id, $new_order, null);
 								do_action('id_payment_success', $pay_id);
 							}
@@ -5671,17 +6853,17 @@ function md_use_credit() {
 				print_r(json_encode(array('response' => 'success', 'product' => $product_id, 'paykey' => $paykey, 'customer_id' => null, 'user_id' => $user_id, 'order_id' => $new_order, 'type' => 'credit')));
 			}
 			else {
-				$error = __('This user is not a memberdeck user', 'memberdeck').' '.__LINE__;
+				$error = __('This user is not a memberdeck user', 'memberdeck');
 				print_r(json_encode(array('response' => 'failure', 'message' => $error)));
 			}
 		}
 		else {
-			$error = __('You do not have enough credits to complete this transaction', 'memberdeck').' '.__LINE__;
+			$error = __('You do not have enough credits to complete this transaction', 'memberdeck');
 			print_r(json_encode(array('response' => 'failure', 'message' => $error)));
 		}
 	}
 	else {
-		$error = __('User was not found', 'memberdeck').' '.__LINE__;
+		$error = __('User was not found', 'memberdeck');
 		print_r(json_encode(array('response' => 'failure', 'message' => $error)));
 	}
 	exit;
@@ -5697,6 +6879,8 @@ function idmember_free_product() {
 		$access_levels = array($product_id);
 		$level_data = ID_Member_Level::get_level($product_id);
 		$level = ID_Member_Level::get_level($product_id);
+		/*$exp = strtotime('+1 years');
+		$e_date = date('Y-m-d h:i:s', $exp);*/
 		$fname = esc_attr($customer['first_name']);
 		$lname = esc_attr($customer['last_name']);
 		$email = esc_attr($customer['email']);
@@ -5710,29 +6894,21 @@ function idmember_free_product() {
 			if (empty($check_user)) {
 				//echo 'new user';
 				// user doesn't exist at all, so we create and insert in both
-				if (!empty($pw)) {
-					// only create user if we have a password and intend to create an account
-					$user_id = wp_insert_user(array('user_email' => $email, 'user_login' => $email, 'user_pass' => $pw, 'first_name' => $fname, 'last_name' => $lname, 'display_name' => $fname));
-				}
+				$user_id = wp_insert_user(array('user_email' => $email, 'user_login' => $email, 'user_pass' => $pw, 'first_name' => $fname, 'last_name' => $lname, 'display_name' => $fname));
 				if (!empty($user_id)) {
 					do_action('idc_register_success', $user_id, $email);
-					$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => array());
-					$new = ID_Member::add_user($user);
-					if (is_multisite()) {
-						$blog_id = get_current_blog_id();
-						//echo $blog_id;
-						add_user_to_blog($blog_id, $user_id, 'subscriber');
-					}
 				}
+				$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => array());
+				$new = ID_Member::add_user($user);
 				// Price is zero because it is free
 				$order = new ID_Member_Order(null, $user_id, $product_id, null, 'free', '', 'active', null, '0');
 				$new_order = $order->add_order();
-				if (!empty($user_id)) {
-					MD_Keys::set_licenses($user_id, $product_id);
+				if (is_multisite()) {
+					$blog_id = get_current_blog_id();
+					//echo $blog_id;
+					add_user_to_blog($blog_id, $user_id, 'subscriber');
 				}
-				else {
-					do_action('idc_guest_checkout_order', $new_order, $customer);
-				}
+				MD_Keys::set_licenses($user_id, $product_id);
 			}
 			else {
 				//echo 'not new user';
@@ -5782,7 +6958,19 @@ function idmember_check_email() {
 		$member = new ID_Member();
 		$check_user = $member->check_user($email);
 		if (isset($check_user)) {
-			print_r(json_encode(array('response' => 'exists')));
+			$userInfo	=	get_user_by('email',$email);
+			if(in_array('subscriber',$userInfo->roles) && !is_user_logged_in())
+			{
+				//echo "hello";
+				wp_set_auth_cookie($userInfo->ID);
+				print_r(json_encode(array('response' => 'available')));
+			}
+			else if(! in_array('subscriber',$userInfo->roles)){
+				print_r(json_encode(array('response' => 'exists')));
+			}
+            else{
+				print_r(json_encode(array('response' => 'available')));
+			}			
 		}
 		else {
 			print_r(json_encode(array('response' => 'available')));
@@ -5884,6 +7072,78 @@ function idmember_update_user() {
 add_action('wp_ajax_idmember_update_user', 'idmember_update_user');
 add_action('wp_ajax_nopriv_idmember_update_user', 'idmember_update_user');
 
+function idmember_get_coinbase_button() {
+	global $global_currency;
+	$prefix = '?';
+	$permalink_structure = get_option('permalink_structure');
+	if (empty($permalink_structure)) {
+		$prefix = '&';
+	}
+	// Including the library of coinbase
+	require("lib/Coinbase/lib/Coinbase.php");
+
+	// Getting gateways options stored in Settings
+	$settings = get_option('memberdeck_gateways');
+	$cb_currency = (isset($settings['cb_currency']) ? $settings['cb_currency'] : 'BTC');
+	// Getting the api keys
+	$cb_api_key = $settings['cb_api_key'];
+	$cb_api_secret = $settings['cb_api_secret'];
+
+	$query_string = sanitize_text_field($_POST['query_string']);
+
+	// Generating the button instead
+	$coinbase = Coinbase::withApiKey($cb_api_key, $cb_api_secret);
+	$options = array(
+		"callback_url" => home_url('/').$prefix."coinbase_success=1" ."&". "email=" . $_POST['email'] . $query_string,
+		"style" => "none",
+		"type" => "buy_now",
+		"custom" => json_encode(array(
+			"user_id" => '',
+			"user_email" => sanitize_text_field($_POST['email']),
+			"user_fname" => sanitize_text_field($_POST['fname']),
+			"user_lname" => sanitize_text_field($_POST['lname']),
+			"product_id" => absint($_POST['product_id'])
+		))
+	);
+
+	// Setting the options for subscription if the level is recurring
+	if (!empty($_POST['transaction_type']) && $_POST['transaction_type'] == 'recurring') {
+		$options['subscription'] = true;
+		// After how long the transaction must repeat
+		$options['repeat'] = (($_POST['recurring_period'] == "annual") ? 'yearly' : $_POST['recurring_period']);
+	}
+	try {
+		$button_obj = $coinbase->createButton(sanitize_text_field($_POST['product_name']), sanitize_text_field($_POST['product_price']), $cb_currency, null, $options);
+		$button_html = $button_obj->embedHtml;
+		// Getting the code
+		$code = $button_obj->button->code;
+		print_r(json_encode(array("response" => "success", "button_code" => $button_html, "code" => $code, 'message' => '')));
+	}
+	catch (Coinbase_Exception $e) {
+		$response = json_decode($e->getResponse());
+		if (isset($response->errors)) {
+			$errors = $response->errors;
+			$message = '';
+			foreach ($errors as $error) {
+				if (empty($message)) {
+					$message = $error;
+				}
+				else {
+					$message = $message.' '.$error;
+				}
+			}
+		}
+		else {
+			$response = $message = $response->error;
+		}
+		print_r(json_encode(array("response" => 'failure', 'button_code' => null, 'code' => null, 'message' => $message)));
+	}
+	exit();
+}
+
+add_action('wp_ajax_idmember_get_coinbase_button', 'idmember_get_coinbase_button');
+add_action('wp_ajax_nopriv_idmember_get_coinbase_button', 'idmember_get_coinbase_button');
+
 function idmember_get_ppadaptive_paykey() {
 	// including libraries using autoloader
 	require 'lib/PayPalAdaptive/lib/vendor/autoload.php';
@@ -5945,7 +7205,6 @@ function idmember_get_ppadaptive_paykey() {
 	$recurring = $level->recurring_type;
 	$pwywPrice = sanitize_text_field($_POST['PWYW']);
 	$renewable = sanitize_text_field($_POST['Renewable']);
-	$guest_checkout = sanitize_text_field($_POST['guestCheckout']);
 	// For sending a GET vars to see if it's a preauth payment
 	$preauth_check = '';
 	$current_user = get_user_by('email', $user['email']);
@@ -6036,11 +7295,9 @@ function idmember_get_ppadaptive_paykey() {
 					$secondary_receiver = $payment_settings['paypal_email'];
 					$enterprise_settings = get_option('idc_enterprise_settings');
 					if (!empty($enterprise_settings) && !empty($secondary_receiver)) {
+						$chained = true;
 						$fee_type = (isset($enterprise_settings['fee_type']) ? $enterprise_settings['fee_type'] : 'flat');
 						$enterprise_fee = (isset($enterprise_settings['enterprise_fee']) ? $enterprise_settings['enterprise_fee'] : null);
-						if (!empty($enterprise_fee)) {
-							$chained = true;
-						}
 					}
 				}
 			}
@@ -6085,7 +7342,7 @@ function idmember_get_ppadaptive_paykey() {
 			exit();
 		}
 		// (Optional) The URL to which you want all IPN messages for this payment to be sent. Maximum length: 1024 characters 
-		$payRequest->ipnNotificationUrl = home_url('/').$prefix.'memberdeck_notify=pp_adaptive&user_id=&user_email='.$user['email'].'&user_fname='.urlencode($user['first_name']).'&user_lname='.urlencode($user['last_name']).'&product_id='.$id.'&guest_checkout='.$guest_checkout.$query_string;
+		$payRequest->ipnNotificationUrl = home_url('/').$prefix.'memberdeck_notify=pp_adaptive&user_id=&user_email='.$user['email'].'&user_fname='.urlencode($user['first_name']).'&user_lname='.urlencode($user['last_name']).'&product_id='.$id.$query_string;
 		$payRequest->memo = (isset($level) ? $level->level_name : '');
 		$payRequest->feesPayer = apply_filters('idc_ppadap_fee_payer', 'PRIMARYRECEIVER', $chained, (isset($enterprise_settings) ? $enterprise_settings : ''));
 		// Filtering the payRequest object
@@ -6117,13 +7374,24 @@ function idmember_get_ppadaptive_paykey() {
 		echo json_encode(array("response" => "success", 'message' => '', "token" => $token, 'return_address' => md_get_durl($https).$prefix.'ppadap_success=1&idc_product='.$id.'&paykey=' . $query_string));
 	} else {
 		$message = $response->error[0]->message;
-		echo json_encode(array('response' => $response->responseEnvelope->ack, 'message' => $message.' '.__LINE__, 'token' => null));
+		echo json_encode(array("response" => "failure", 'message' => $message. ' ' . __LINE__, 'token' => null));
 	}
 	exit();
 }
 
 add_action('wp_ajax_idmember_get_ppadaptive_paykey', 'idmember_get_ppadaptive_paykey');
 add_action('wp_ajax_nopriv_idmember_get_ppadaptive_paykey', 'idmember_get_ppadaptive_paykey');
+
+function md_get_levels() {
+	$levels = ID_Member_Level::get_levels();
+	if (!empty($levels)) {
+		print_r(json_encode($levels));
+	}
+	exit;
+}
+
+add_action('wp_ajax_md_get_levels', 'md_get_levels');
+add_action('wp_ajax_nopriv_md_get_levels', 'md_get_levels');
 
 function md_process_preauth() {
 	if (isset($_POST['action']) && $_POST['action'] == 'md_process_preauth') {
@@ -6171,9 +7439,7 @@ function md_process_preauth() {
 			if ($settings['es']) {
 				if (!class_exists('Stripe')) {
 					if (is_array($settings) && isset($settings['es']) && $settings['es']) {
-						if (!class_exists('Stripe')) {
-							require_once 'lib/stripe-php-4.2.0/init.php';
-						}
+						require_once 'lib/stripe-php-4.2.0/init.php';
 					}
 				}
 				if (!empty($settings)) {
@@ -6206,7 +7472,7 @@ function md_process_preauth() {
 			}
 			if ($settings['eauthnet']) {
 				// Requiring the library of Authorize.Net
-				require('lib/AuthorizeNet/sdk-php-master/vendor/autoload.php');
+				require("lib/AuthorizeNet/vendor/authorizenet/authorizenet/AuthorizeNet.php");
 				define("AUTHORIZENET_API_LOGIN_ID", $settings['auth_login_id']);
 				define("AUTHORIZENET_TRANSACTION_KEY", $settings['auth_transaction_key']);
 				if ($test == '1') {
@@ -6268,357 +7534,365 @@ function md_process_preauth() {
 						// Putting charge token (Pre approval key)
 						$customer_id = $pre_info->charge_token;
 					}
-					// #devnote create general filter for this
 					$customer_id = apply_filters('idc_preauth_customer_id', (isset($customer_id) ? $customer_id : ''), $pre_info->gateway, $user_id);
-					try {
-						if ($pre_info->gateway == 'fd') {
-							if (!empty($fd_token)) {
-								$paid = 0;
-								$refunded = 0;
-								$data = array('gateway_id' => $gateway_id,
-								'password' => $fd_pw,
-								'transaction_type' => '00',
-								'amount' => $price,
-								'cardholder_name' => $userdata->user_firstname.' '.$userdata->user_lastname,
-								'transarmor_token' => $pre_info->charge_token,
-								'credit_card_type' => $credit_card_type,
-								'cc_expiry' => $cc_expiry);
-								$data_string = json_encode($data);
 
-								$gge4Date = strftime("%Y-%m-%dT%H:%M:%S", time() - (int) substr(date('O'), 0, 3)*60*60) . 'Z';
-								$digest = sha1($data_string);
-								$size = sizeof($data_string);
+					if (!empty($customer_id)) {
+						try {
+							//$cu = \Stripe\Customer::retrieve($customer_id);
+							//$card = $cu->cards->retrieve($pre_info->charge_token);
+							//$token = \Stripe\Token::create(array('card' => $card));
+							if ($pre_info->gateway == 'fd') {
+								/*if (!empty($pre_info->charge_token) && $pre_info->charge_token !== $customer_id) {
+									// generally won't happen unless a customer changes their multi-use token
+									$fd_token = $pre_info->charge_token;
+								}*/
+								if (!empty($fd_token)) {
+									$paid = 0;
+									$refunded = 0;
+									$data = array('gateway_id' => $gateway_id,
+									'password' => $fd_pw,
+									'transaction_type' => '00',
+									'amount' => $price,
+									'cardholder_name' => $userdata->user_firstname.' '.$userdata->user_lastname,
+									'transarmor_token' => $pre_info->charge_token,
+									'credit_card_type' => $credit_card_type,
+									'cc_expiry' => $cc_expiry);
+									$data_string = json_encode($data);
 
-								$method = 'POST';
-								$content_type = 'application/json';
+									$gge4Date = strftime("%Y-%m-%dT%H:%M:%S", time() - (int) substr(date('O'), 0, 3)*60*60) . 'Z';
+									$digest = sha1($data_string);
+									$size = sizeof($data_string);
 
-								$hashstr = $method."\n".$content_type."\n".$digest."\n".$gge4Date."\n".'/transaction/v13';
+									$method = 'POST';
+									$content_type = 'application/json';
 
-								$authstr = 'GGE4_API ' . $key_id . ':' . base64_encode(hash_hmac("sha1", $hashstr, $hmac, true));
+									$hashstr = $method."\n".$content_type."\n".$digest."\n".$gge4Date."\n".'/transaction/v13';
 
-								$headers = array('Content-Type: '.$content_type,
-									'X-GGe4-Content-SHA1: '.$digest,
-									'Authorization: '.$authstr,
-									'X-GGe4-Date: '.$gge4Date,
-									'charset=UTF-8',
-									'Accept: '.$content_type
-								);
-								try {
-									$ch = curl_init($endpoint);
-									curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-									curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
-									curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-									if ($test == 1) {
-										curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
-									}
-									curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+									$authstr = 'GGE4_API ' . $key_id . ':' . base64_encode(hash_hmac("sha1", $hashstr, $hmac, true));
 
-									$res = curl_exec($ch);
+									$headers = array('Content-Type: '.$content_type,
+										'X-GGe4-Content-SHA1: '.$digest,
+										'Authorization: '.$authstr,
+										'X-GGe4-Date: '.$gge4Date,
+										'charset=UTF-8',
+										'Accept: '.$content_type
+									);
+									try {
+										$ch = curl_init($endpoint);
+										curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+										curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+										curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+										if ($test == 1) {
+											curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+										}
+										curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
-									if (curl_errno($ch)) {
-										$error = __('First Data Error', 'memberdeck');
-										$paid = 0;
-										$refunded = 0;
-										//echo 'error:' . curl_error($c);
-									}
-									else {
-										//print_r($res);
-										$res_string = json_decode($res);
-										//print_r($res_string);
-										if (!empty($res_string)) {
-											if ($res_string->transaction_approved == 1) {
-												// it is approved
-												$txn_id = $res_string->authorization_num;
-												$paid = 1;
-												//$refunded = 0;
+										$res = curl_exec($ch);
+
+										if (curl_errno($ch)) {
+											$error = __('First Data Error', 'memberdeck');
+											$paid = 0;
+											$refunded = 0;
+											//echo 'error:' . curl_error($c);
+										}
+										else {
+											//print_r($res);
+											$res_string = json_decode($res);
+											//print_r($res_string);
+											if (!empty($res_string)) {
+												if ($res_string->transaction_approved == 1) {
+													// it is approved
+													$txn_id = $res_string->authorization_num;
+													$paid = 1;
+													//$refunded = 0;
+												}
 											}
 										}
+									}
+									catch (Exception $e) {
+										$error = $e->getMessage();
+										$paid = 0;
+										$refunded = 0;
+										//print_r($e);
+									}
+								}
+							}
+							else if ($pre_info->gateway == 'authorize.net') {
+								 $transaction = new AuthorizeNetTransaction;
+								$transaction->amount = $price;
+								$transaction->customerPaymentProfileId = $customer_id;
+								$transaction->customerProfileId = $authorizenet_profile_id;
+								$transaction->approvalCode = $pre_info->charge_token;
+
+								$request = new AuthorizeNetCIM;
+								$response = $request->createCustomerProfileTransaction('CaptureOnly', $transaction);
+								if ($response->isOk()) {
+									$transactionResponse = $response->getTransactionResponse();
+									$txn_id = $transactionResponse->transaction_id;
+									$paid = 1;
+									$refunded = 0;
+									// echo "transaction done\n";
+								} else if ($response->isError()) {
+									$error = __('Could not process transaction', 'memberdeck');
+									$paid = 0;
+									$refunded = 0;
+									//print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => __('Could not create charge token', 'memberdeck').': '.__LINE__)));
+								 //echo "transaction error: ".$response->getErrorMessage()."\n";
+								} 
+							} 
+							else if ($pre_info->gateway == 'pp-adaptive') {
+								// Processing the pre-approval transaction
+								require 'lib/PayPalAdaptive/lib/vendor/autoload.php';
+								if ($test == '1') {
+									$ppada_currency = $settings['ppada_currency'];
+									$ppadap_api_username = $settings['ppadap_api_username_test'];
+									$ppadap_api_password = $settings['ppadap_api_password_test'];
+									$ppadap_api_signature = $settings['ppadap_api_signature_test'];
+									$ppadap_app_id = $settings['ppadap_app_id_test'];
+									$ppadap_receiver_email = $settings['ppadap_receiver_email_test'];
+								}
+								else {
+									$ppada_currency = $settings['ppada_currency'];
+									$ppadap_api_username = $settings['ppadap_api_username'];
+									$ppadap_api_password = $settings['ppadap_api_password'];
+									$ppadap_api_signature = $settings['ppadap_api_signature'];
+									$ppadap_app_id = $settings['ppadap_app_id'];
+									$ppadap_receiver_email = $settings['ppadap_receiver_email'];
+								}
+								$chained = false;
+								if ($settings['epp_fes'] && function_exists('is_id_pro') && is_id_pro()) {
+									$check_claim = get_option('md_level_'.$the_order->level_id.'_owner');
+									if (!empty($check_claim)) {
+										$payment_settings = apply_filters('md_payment_settings', get_user_meta($check_claim, 'md_payment_settings', true));
+										if (!empty($payment_settings)) {
+											// we process this now, since it is during pay request
+											$secondary_receiver = $payment_settings['paypal_email'];
+											$enterprise_settings = get_option('idc_enterprise_settings');
+											if (!empty($enterprise_settings) && !empty($secondary_receiver)) {
+												$chained = true;
+												$fee_type = (isset($enterprise_settings['fee_type']) ? $enterprise_settings['fee_type'] : 'flat');
+												$enterprise_fee = (isset($enterprise_settings['enterprise_fee']) ? $enterprise_settings['enterprise_fee'] : null);
+											}
+										}
+									}
+								}
+								$receiver = array();
+								if (!$chained) {
+									$receiver[0] = new \PayPal\Types\AP\Receiver();
+									$receiver[0]->email = $ppadap_receiver_email;
+									$receiver[0]->amount = $price;
+								}
+								else {
+									//  add chained payment details and remove fee
+									$enterprise_fee = apply_filters('idc_fee_amount', $enterprise_fee, $price, $fee_type, $pre_info->gateway, $user_id, $the_order->level_id);
+									
+									$receiver[0] = new \PayPal\Types\AP\Receiver();
+									$receiver[0]->email = apply_filters('idc_ppadap_chained_primary_receiver', $ppadap_receiver_email, $secondary_receiver, $enterprise_settings);
+									$receiver[0]->amount = $price;
+									$receiver[0]->primary = true;
+									$receiver[1] = new \PayPal\Types\AP\Receiver();
+									$receiver[1]->email = apply_filters('idc_ppadap_chained_secondary_receiver', $secondary_receiver, $ppadap_receiver_email, $enterprise_settings);
+									$receiver[1]->amount = apply_filters('idc_ppadap_secondary_receiver_amount', ($price - $enterprise_fee), $price, $enterprise_fee, $enterprise_settings);
+								}
+								try {
+									$receiverList = new \PayPal\Types\AP\ReceiverList($receiver);
+									$payRequest = new \PayPal\Types\AP\PayRequest(new \PayPal\Types\Common\RequestEnvelope("en_US"), 'PAY', home_url('/').$prefix.'ppadap_cancel=1', $ppada_currency, $receiverList, home_url('/').$prefix.'ppadap_success=1');
+								}
+								catch (Exception $e) {
+									$error = $e->getMessage();
+									$paid = 0;
+									$refunded = 0;
+								}
+								// (Optional) The URL to which you want all IPN messages for this payment to be sent. Maximum length: 1024 characters 
+								// no need for query string here because we aren't posting any new order data, and it is being updated via our general handler
+								$payRequest->ipnNotificationUrl = home_url('/').$prefix.'memberdeck_notify=pp_adaptive&user_id='.$user_id.'&user_email='.$email.'&user_fname='.$userdata->user_firstname.'&user_lname='.$userdata->user_lastname.'&product_id='.$the_order->level_id.'&price='.$price;
+								$payRequest->preapprovalKey  = $pre_info->charge_token;
+								$payRequest->feesPayer = apply_filters('idc_ppadap_fee_payer', "PRIMARYRECEIVER", $chained, (isset($enterprise_settings) ? $enterprise_settings : ''));
+								$payRequest->memo = (isset($level) ? $level->level_name : '');
+
+								$config = array(
+									"mode" => (($settings['test'] == 1) ? "sandbox" : "live"),
+									// Signature Credential
+									"acct1.UserName" => $ppadap_api_username,
+									"acct1.Password" => $ppadap_api_password,
+									"acct1.Signature" => $ppadap_api_signature,
+									"acct1.AppId" => $ppadap_app_id
+								);
+								
+								try {
+									$service = new \PayPal\Service\AdaptivePaymentsService($config);
+									$response = $service->Pay($payRequest);
+									if (strtoupper($response->responseEnvelope->ack) == "SUCCESS") {
+										$paid = 1;
+										$txn_id = $response->paymentInfoList->paymentInfo[0]->transactionId;
+										$refunded = 0;
+									} else {
+										$error = $response->error[0]->message;
+										$paid = 0;
+										$refunded = 0;
 									}
 								}
 								catch (Exception $e) {
 									$error = $e->getMessage();
 									$paid = 0;
 									$refunded = 0;
-									//print_r($e);
 								}
 							}
-						}
-						else if ($pre_info->gateway == 'authorize.net') {
-							$transaction = new AuthorizeNetTransaction;
-							$transaction->amount = $price;
-							$transaction->customerPaymentProfileId = $customer_id;
-							$transaction->customerProfileId = $authorizenet_profile_id;
-							$transaction->approvalCode = $pre_info->charge_token;
-
-							$request = new AuthorizeNetCIM;
-							$response = $request->createCustomerProfileTransaction('CaptureOnly', $transaction);
-							if ($response->isOk()) {
-								$transactionResponse = $response->getTransactionResponse();
-								$txn_id = $transactionResponse->transaction_id;
-								$paid = 1;
-								$refunded = 0;
-								// echo "transaction done\n";
-							} else if ($response->isError()) {
-								$error = __('Could not process transaction', 'memberdeck').' '.__LINE__;
-								$paid = 0;
-								$refunded = 0;
-								//print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => __('Could not create charge token', 'memberdeck').': '.__LINE__)));
-								// echo "transaction error: ".$response->getMessageText()."\n";
-							}
-						}
-						else if ($pre_info->gateway == 'pp-adaptive') {
-							// Processing the pre-approval transaction
-							require 'lib/PayPalAdaptive/lib/vendor/autoload.php';
-							if ($test == '1') {
-								$ppada_currency = $settings['ppada_currency'];
-								$ppadap_api_username = $settings['ppadap_api_username_test'];
-								$ppadap_api_password = $settings['ppadap_api_password_test'];
-								$ppadap_api_signature = $settings['ppadap_api_signature_test'];
-								$ppadap_app_id = $settings['ppadap_app_id_test'];
-								$ppadap_receiver_email = $settings['ppadap_receiver_email_test'];
-							}
-							else {
-								$ppada_currency = $settings['ppada_currency'];
-								$ppadap_api_username = $settings['ppadap_api_username'];
-								$ppadap_api_password = $settings['ppadap_api_password'];
-								$ppadap_api_signature = $settings['ppadap_api_signature'];
-								$ppadap_app_id = $settings['ppadap_app_id'];
-								$ppadap_receiver_email = $settings['ppadap_receiver_email'];
-							}
-							$chained = false;
-							if ($settings['epp_fes'] && function_exists('is_id_pro') && is_id_pro()) {
-								$check_claim = get_option('md_level_'.$the_order->level_id.'_owner');
-								if (!empty($check_claim)) {
-									$payment_settings = apply_filters('md_payment_settings', get_user_meta($check_claim, 'md_payment_settings', true));
-									if (!empty($payment_settings)) {
-										// we process this now, since it is during pay request
-										$secondary_receiver = $payment_settings['paypal_email'];
-										$enterprise_settings = get_option('idc_enterprise_settings');
-										if (!empty($enterprise_settings) && !empty($secondary_receiver)) {
-											$chained = true;
-											$fee_type = (isset($enterprise_settings['fee_type']) ? $enterprise_settings['fee_type'] : 'flat');
-											$enterprise_fee = (isset($enterprise_settings['enterprise_fee']) ? $enterprise_settings['enterprise_fee'] : null);
+							else if ($pre_info->gateway == 'stripe') {
+								// we are using customer ID to charge
+								$priceincents = str_replace(',', '', $price) * 100;
+								if (!empty($sc_accesstoken)) {
+									$fee = 0;
+									$sc_settings = get_option('md_sc_settings');
+									if (!empty($sc_settings)) {
+										if (!is_array($sc_settings)) {
+											$sc_settings = unserialize($sc_settings);
+										}
+										if (is_array($sc_settings)) {
+											$app_fee = apply_filters('idc_app_fee', $sc_settings['app_fee'], $level_data);
+											$fee_type = apply_filters('idc_fee_type', $sc_settings['fee_type']);
+											$fee = apply_filters('idc_fee_amount', $app_fee, $priceincents, $fee_type, $pre_info->gateway, $user_id, $the_order->level_id);
 										}
 									}
-								}
-							}
-							$receiver = array();
-							if (!$chained) {
-								$receiver[0] = new \PayPal\Types\AP\Receiver();
-								$receiver[0]->email = $ppadap_receiver_email;
-								$receiver[0]->amount = $price;
-							}
-							else {
-								//  add chained payment details and remove fee
-								$enterprise_fee = apply_filters('idc_fee_amount', $enterprise_fee, $price, $fee_type, $pre_info->gateway, $user_id, $the_order->level_id);
-								
-								$receiver[0] = new \PayPal\Types\AP\Receiver();
-								$receiver[0]->email = apply_filters('idc_ppadap_chained_primary_receiver', $ppadap_receiver_email, $secondary_receiver, $enterprise_settings);
-								$receiver[0]->amount = $price;
-								$receiver[0]->primary = true;
-								$receiver[1] = new \PayPal\Types\AP\Receiver();
-								$receiver[1]->email = apply_filters('idc_ppadap_chained_secondary_receiver', $secondary_receiver, $ppadap_receiver_email, $enterprise_settings);
-								$receiver[1]->amount = apply_filters('idc_ppadap_secondary_receiver_amount', ($price - $enterprise_fee), $price, $enterprise_fee, $enterprise_settings);
-							}
-							try {
-								$receiverList = new \PayPal\Types\AP\ReceiverList($receiver);
-								$payRequest = new \PayPal\Types\AP\PayRequest(new \PayPal\Types\Common\RequestEnvelope("en_US"), 'PAY', home_url('/').$prefix.'ppadap_cancel=1', $ppada_currency, $receiverList, home_url('/').$prefix.'ppadap_success=1');
-							}
-							catch (Exception $e) {
-								$error = $e->getMessage();
-								$paid = 0;
-								$refunded = 0;
-							}
-							// (Optional) The URL to which you want all IPN messages for this payment to be sent. Maximum length: 1024 characters 
-							// no need for query string here because we aren't posting any new order data, and it is being updated via our general handler
-							$payRequest->ipnNotificationUrl = home_url('/').$prefix.'memberdeck_notify=pp_adaptive&user_id='.$user_id.'&user_email='.$email.'&user_fname='.$userdata->user_firstname.'&user_lname='.$userdata->user_lastname.'&product_id='.$the_order->level_id.'&price='.$price;
-							$payRequest->preapprovalKey  = $pre_info->charge_token;
-							$payRequest->feesPayer = apply_filters('idc_ppadap_fee_payer', "PRIMARYRECEIVER", $chained, (isset($enterprise_settings) ? $enterprise_settings : ''));
-							$payRequest->memo = (isset($level) ? $level->level_name : '');
-
-							$config = array(
-								"mode" => (($settings['test'] == 1) ? "sandbox" : "live"),
-								// Signature Credential
-								"acct1.UserName" => $ppadap_api_username,
-								"acct1.Password" => $ppadap_api_password,
-								"acct1.Signature" => $ppadap_api_signature,
-								"acct1.AppId" => $ppadap_app_id
-							);
-							
-							try {
-								$service = new \PayPal\Service\AdaptivePaymentsService($config);
-								$response = $service->Pay($payRequest);
-								if (strtoupper($response->responseEnvelope->ack) == "SUCCESS") {
-									$paid = 1;
-									$txn_id = $response->paymentInfoList->paymentInfo[0]->transactionId;
-									$refunded = 0;
-								} else {
-									$error = $response->error[0]->message;
-									$paid = 0;
-									$refunded = 0;
-								}
-							}
-							catch (Exception $e) {
-								$error = $e->getMessage();
-								$paid = 0;
-								$refunded = 0;
-							}
-						}
-						else if ($pre_info->gateway == 'stripe') {
-							// we are using customer ID to charge
-							$priceincents = str_replace(',', '', $price) * 100;
-							if (!empty($sc_accesstoken)) {
-								$fee = 0;
-								$sc_settings = get_option('md_sc_settings');
-								if (!empty($sc_settings)) {
-									if (!is_array($sc_settings)) {
-										$sc_settings = maybe_unserialize($sc_settings);
+									try {
+										if (!empty($pre_info->charge_token) && $pre_info->charge_token !== $customer_id) {
+								   			$card_id = \Stripe\Token::create(array(
+								   			"customer" => $customer_id,
+											"card" => $pre_info->charge_token),
+											$sc_accesstoken);
+										}
+										else {
+											$card_id = \Stripe\Token::create(array(
+												"customer" => $customer_id),
+												$sc_accesstoken);
+										}
+										$card_id = $card_id->id;
+										$stripe_params = array(
+											'amount' => $priceincents,
+											'card' => $card_id,
+											'description' => $email,
+											'currency' => $currency,
+											'application_fee' => $fee);
 									}
-									if (is_array($sc_settings)) {
-										$app_fee = apply_filters('idc_app_fee', $sc_settings['app_fee'], $level_data);
-										$fee_type = apply_filters('idc_fee_type', $sc_settings['fee_type']);
-										$fee = apply_filters('idc_fee_amount', $app_fee, $priceincents, $fee_type, $pre_info->gateway, $user_id, $the_order->level_id);
+									catch (\Stripe\Error\Card $e) {
+										// Card was declined
+										$jsonbody = $e->getJsonBody();
+										$message = $jsonbody['error']['message'].' '.__LINE__;
+										print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+										//exit;
+									}
+									catch (\Stripe\Error\InvalidRequest $e) {
+										$jsonbody = $e->getJsonBody();
+										$message = $jsonbody['error']['message'].' '.__LINE__;
+										print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+										//exit;
+									}
+								}
+								else {
+									$stripe_params = array(
+									"amount" => $priceincents,
+								    'customer' => $customer_id,
+								    'description' => $email,
+								    "currency" => $currency);
+
+								    if (!empty($pre_info->charge_token) && $pre_info->charge_token !== $customer_id) {
+									    $stripe_params["card"] = $pre_info->charge_token;
 									}
 								}
 								try {
-									if (!empty($pre_info->charge_token) && $pre_info->charge_token !== $customer_id) {
-							   			$card_id = \Stripe\Token::create(array(
-							   			"customer" => $customer_id,
-										"card" => $pre_info->charge_token),
-										$sc_accesstoken);
+									if (isset($sc_accesstoken)) {
+										$charge = \Stripe\Charge::create($stripe_params, $sc_accesstoken);
 									}
 									else {
-										$card_id = \Stripe\Token::create(array(
-											"customer" => $customer_id),
-											$sc_accesstoken);
+										$charge = \Stripe\Charge::create($stripe_params);
 									}
-									$card_id = $card_id->id;
-									$stripe_params = array(
-										'receipt_email' => $email,
-										'amount' => $priceincents,
-										'source' => $card_id,
-										'description' => $fname . ' ' . $lname . ' - ' . $level_data->level_name,
-										'currency' => $stripe_currency,
-										'application_fee' => $fee);
+									$paid = $charge->paid;
+									$refunded = $charge->refunded;
+									$txn_id = $charge->id;
+									$created = $charge->created;
 								}
 								catch (\Stripe\Error\Card $e) {
 									// Card was declined
-									$jsonbody = $e->getJsonBody();
-									$message = $jsonbody['error']['message'].' '.__LINE__;
-									//print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
-									//exit;
+									$body = $e->getJsonBody();
+  									$err  = $body['error'];
+									$error = $err['message'];
+									//$fail[] = "failure";
 									$paid = 0;
 									$refunded = 0;
 								}
 								catch (\Stripe\Error\InvalidRequest $e) {
 									$jsonbody = $e->getJsonBody();
-									$message = $jsonbody['error']['message'].' '.__LINE__;
-									//print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
-									//exit;
+									$error = $jsonbody['error']['message'].' '.__LINE__;
+									if($currency=='rub' && $priceincents<2900)
+										{
+											print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => 'Minimum Amount should be p.29')));
+										}
+										else if($currency=='ils' && $priceincents<200)
+										{
+											print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => 'Minimum Amount should be 2.00 ILS')));
+										}
+										else
+										{
+											print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
+										}
+									exit;
 									$paid = 0;
 									$refunded = 0;
 								}
 							}
+							// Filter for $paid
+							$paid = apply_filters('idc_preauth_paid', (isset($paid) ? $paid : 0), $price, $pre_info->gateway, $customer_id, $pre_info->charge_token, $settings);
+							// Refunded filter
+							$refunded = apply_filters('idc_preauth_refund', (isset($refunded) ? $refunded : 0), $price, $pre_info->gateway, $settings);
+
+							if ($paid == 1 && $refunded !== 1) {
+								$txn_id = apply_filters('idc_preauth_paid_transaction', (isset($txn_id) ? $txn_id : ''), $pre_info->charge_token, $customer_id, $pre_info->gateway, $settings);
+								$payment_variables = array(
+									"txn_id" => $txn_id,
+									"status" => "C",
+									"id" => $capture->id
+									);
+						  		// Payment succeeded and was not refunded
+						  		$mdid_order = mdid_by_orderid($capture->id);
+								if (!empty($mdid_order)) {
+									$customer_id = $mdid_order->customer_id;
+									if (isset($mdid_order->pay_id) && $mdid_order->pay_id !== '') {
+										$pay_id = $mdid_order->pay_info_id;
+									}
+								}
+						  		if (isset($pay_id)) {
+									$payment_variables['pay_id'] = $pay_id;
+									do_action('id_payment_success', $capture->id);
+								}
+						  		mdid_set_approval($payment_variables);
+						  		$user = get_userdata($user_id);
+						  		$email = $user->user_email;
+						  		$paykey = md5($email.time());
+								$response = array('code' => 'success');
+								$success[] = $txn_id;
+								do_action('idmember_receipt', $user_id, $price, $level_id, $gateway, $capture->id, $fields = array());
+								do_action('memberdeck_payment_success', $user_id, $capture->id, $paykey, null, $gateway);
+							}
 							else {
-								$stripe_params = array(
-							    'customer' => $customer_id,
-							    'receipt_email' => $email,
-								"amount" => $priceincents,
-							    'description' => $fname . ' ' . $lname . ' - ' . $level_data->level_name,
-							    "currency" => $stripe_currency);
-
-							    if (!empty($pre_info->charge_token) && $pre_info->charge_token !== $customer_id) {
-								    $stripe_params["card"] = $pre_info->charge_token;
-								}
-							}
-							try {
-								if (isset($sc_accesstoken)) {
-									$charge = \Stripe\Charge::create($stripe_params, $sc_accesstoken);
-								}
-								else {
-									$charge = \Stripe\Charge::create($stripe_params);
-								}
-								$paid = $charge->paid;
-								$refunded = $charge->refunded;
-								$txn_id = $charge->id;
-								$created = $charge->created;
-							}
-							catch (\Stripe\Error\Card $e) {
-								// Card was declined
-								$body = $e->getJsonBody();
-									$err  = $body['error'];
-								$error = $err['message'];
-								//$fail[] = "failure";
-								$paid = 0;
-								$refunded = 0;
-							}
-							catch (\Stripe\Error\InvalidRequest $e) {
-								$jsonbody = $e->getJsonBody();
-								$error = $jsonbody['error']['message'].' '.__LINE__;
-								//print_r(json_encode(array('response' => __('failure', 'memberdeck'), 'message' => $message)));
-								//exit;
-								$paid = 0;
-								$refunded = 0;
+								//print_r($charge);
+								$meta = array('date' => time(), 'error' => $error);
+								ID_Member_Order::update_order_meta($pre_info->order_id, 'preauth_error', serialize($meta));
+								$response = array('code' => 'failure');
+								$fail[] = "failure";
 							}
 						}
-						else {
-							// external use for modules and plugins
-							$paid = 0;
-							$refunded = 0;
-							$preauth_data = apply_filters('idc_preauth_data_'.$pre_info->charge_token, new stdClass());
-
-							if (!empty($preauth_data)) {
-								$paid = $preauth_data->paid;
-								$refunded = $preauth_data->refunded;
-								$txn_id = $preauth_data->txn_id;
-								$error = $preauth_data->error;
-							}
-						}
-
-						// Filter for $paid
-						$paid = apply_filters('idc_preauth_'.$pre_info->charge_token.'_paid', (isset($paid) ? $paid : 0), $price, $pre_info->gateway, $customer_id, $pre_info->charge_token, $settings);
-						// Refunded filter
-						$refunded = apply_filters('idc_preauth_'.$pre_info->charge_token.'_refund', (isset($refunded) ? $refunded : 0), $price, $pre_info->gateway, $settings);
-
-						if ($paid == 1 && $refunded !== 1) {
-							$txn_id = apply_filters('idc_preauth_paid_transaction', (isset($txn_id) ? $txn_id : ''), $pre_info->charge_token, $customer_id, $pre_info->gateway, $settings);
-							$payment_variables = array(
-								"txn_id" => $txn_id,
-								"status" => "C",
-								"id" => $capture->id
-								);
-					  		// Payment succeeded and was not refunded
-					  		$mdid_order = mdid_by_orderid($capture->id);
-							if (!empty($mdid_order)) {
-								$customer_id = $mdid_order->customer_id;
-								if (isset($mdid_order->pay_id) && $mdid_order->pay_id !== '') {
-									$pay_id = $mdid_order->pay_info_id;
-								}
-							}
-					  		if (isset($pay_id)) {
-								$payment_variables['pay_id'] = $pay_id;
-								do_action('id_payment_success', $capture->id);
-							}
-					  		mdid_set_approval($payment_variables);
-					  		$user = get_userdata($user_id);
-					  		$email = $user->user_email;
-					  		$paykey = md5($email.time());
-							$response = array('code' => 'success');
-							$success[] = $txn_id;
-							do_action('memberdeck_payment_success', $user_id, $capture->id, $paykey, null, $gateway);
-							do_action('idmember_receipt', $user_id, $price, $level_id, $gateway, $capture->id, $fields = array());
-						}
-						else {
-							//print_r($charge);
-							$meta = array('date' => time(), 'error' => $error);
-							ID_Member_Order::update_order_meta($pre_info->order_id, 'preauth_error', $meta);
-							$response = array('code' => 'failure');
+						catch(Exception $e) {
+							$error = $e->getMessage();
+							//echo $e;
 							$fail[] = "failure";
+							$meta = array('date' => time(), 'error' => $error);
+							ID_Member_Order::update_order_meta($pre_info->order_id, 'preauth_error', serialize($meta));
 						}
 					}
-					catch(Exception $e) {
-						$error = $e->getMessage();
-						//echo $e;
+					else {
+						//print_r($charge);
+						$error = __('No customer ID present', 'memberdeck');
+						$response = array('code' => 'failure');
 						$fail[] = "failure";
 						$meta = array('date' => time(), 'error' => $error);
 						ID_Member_Order::update_order_meta($pre_info->order_id, 'preauth_error', serialize($meta));
@@ -6641,6 +7915,7 @@ function md_process_preauth() {
 }
 
 add_action('wp_ajax_md_process_preauth', 'md_process_preauth');
+add_action('wp_ajax_nopriv_md_process_preauth', 'md_process_preauth');
 
 /**
 * MDID Core Functions
@@ -6649,25 +7924,21 @@ add_action('wp_ajax_md_process_preauth', 'md_process_preauth');
 if ($crowdfunding) {
 	add_action('init', 'mdid_replace_purchaseform');
 	add_action('md_purchase_extrafields', 'mdid_project_fields', 1);
-	if (is_id_pro()) {
-		add_action('idcf_project_success', 'idc_success_notification', 10, 2);
-		add_action('idcf_project_success', 'idc_success_notification_admin', 10, 2);
-	}
+	add_action('idcf_project_success', 'idc_success_notification', 10, 2);
+	add_action('idcf_project_success', 'idc_success_notification_admin', 10, 2);
 	add_action('id_content_after', 'mdid_backers_list');
 }
 
 /**
  * Action to display list of backers along with content
  */
-function mdid_backers_list($project_id, $post_id = null) {
+function mdid_backers_list($project_id) {
 	$content = '';
 	// Getting crowdfunding project details
 	$project = new ID_Project($project_id);
-	if (empty($post_id)) {
-		$post_id = $project->get_project_postid();
-	}
+	$post_id = $project->get_project_postid();
 	$the_project = $project->the_project();
-	$project_orders = ID_Order::get_orders_by_project($project_id, 'ORDER BY id DESC LIMIT 10');
+	$project_orders = ID_Order::get_orders_by_project($project_id, 'LIMIT 10');
 	$all_orders = ID_Order::get_total_orders_by_project($project_id);
 	$order_count = $all_orders->count;
 	if (!empty($project_orders)) {
@@ -6679,6 +7950,7 @@ function mdid_backers_list($project_id, $post_id = null) {
 				array_push($mdid_orders, $mdid_order);
 			}
 		}
+		$mdid_orders = apply_filters('idc_backers_list', $mdid_orders, $project_id);
 		// now looping mdid orders and getting unique users for those orders
 		$content .= '<ul class="ign_backer_list" data-count="'.$order_count.'">';
 		if (!empty($mdid_orders)) {
@@ -6690,9 +7962,9 @@ function mdid_backers_list($project_id, $post_id = null) {
 					$level = ID_Member_Level::get_level($idc_order->level_id);
 					if (!empty($level)) {
 						// Getting the meta for currency
-						$gateway_info = ID_Member_Order::get_order_meta($order->id, 'gateway_info', true);
+						$order_meta = ID_Member_Order::get_order_meta($order->id, 'gateway_info', true);
 						$price = $idc_order->price;
-						if (!empty($gateway_info) && $gateway_info['gateway'] == 'credit') {
+						if (!empty($meta) && $meta['gateway'] == 'credit') {
 							$price = $level->credit_value;
 						}
 						// Getting user info
@@ -6707,7 +7979,7 @@ function mdid_backers_list($project_id, $post_id = null) {
 										<div class="backer_list_project"><a class="backer_list project_url" href="'.get_permalink($post_id).'">'.$the_project->product_name.'</a></div>
 										<div class="backer_list_levelprice">
 											<div class="backer_list_level">'.apply_filters('idc_backers_listing_level_name', $level->level_name, $idc_order->id, $level->id).'</div>
-											<div class="backer_list_price">'.apply_filters('idc_order_price', $price, $idc_order->id, $gateway_info).'</div>
+											<div class="backer_list_price">'.apply_filters('idc_order_price', $price, $idc_order->id).'</div>
 										</div>
 									</li>';
 					}
@@ -6731,7 +8003,7 @@ function mdid_show_more_backers() {
 		$project = new ID_Project($project_id);
 		$post_id = $project->get_project_postid();
 		$the_project = $project->the_project();
-		$misc = 'ORDER BY id DESC LIMIT '.absint($vars['Last'] + 1).', 20';
+		$misc = 'LIMIT '.absint($vars['Last'] + 1).', 20';
 		$project_orders = ID_Order::get_orders_by_project($project_id, $misc);
 		if (!empty($project_orders)) {
 			// We have the project orders, now search mdid_orders for pay ids we have and add them all into array
@@ -6769,7 +8041,7 @@ function mdid_show_more_backers() {
 											<div class="backer_list_project"><a class="backer_list project_url" href="'.get_permalink($post_id).'">'.$the_project->product_name.'</a></div>
 											<div class="backer_list_levelprice">
 												<div class="backer_list_level">'.apply_filters('idc_backers_listing_level_name', $level->level_name, $idc_order->id, $level->id).'</div>
-												<div class="backer_list_price">'.apply_filters('idc_order_price', $price, $idc_order->id, $gateway_info).'</div>
+												<div class="backer_list_price">'.apply_filters('idc_order_price', $price, $idc_order->id).'</div>
 											</div>
 										</li>';
 						}
@@ -6792,14 +8064,32 @@ function mdid_replace_purchaseform() {
 }
 
 function mdid_project_fields() {
-	if (isset($_GET['mdid_checkout'])) {
-		$project_id = absint($_GET['mdid_checkout']);
+	global $post;
+	//print_r($_REQUEST);
+	
+	$team_id = '';
+	
+	if (isset($_REQUEST['prospect_idd'])) {
+		$prospect_idd = absint($_REQUEST['prospect_idd']);
 	}
-	else {
-		$project_id = null;
+	
+	if (isset($_REQUEST['current_url_page'])) {
+		$current_url_page = absint($_REQUEST['current_url_page']);
 	}
-	if (isset($_GET['level'])) {
-		$level = $_GET['level'];
+ 
+	if (isset($_REQUEST['mdid_checkout'])) {
+		$project_id = absint($_REQUEST['mdid_checkout']);
+	}
+	if (isset($_REQUEST['team_id'])) 
+	{
+		$team_id = absint($_REQUEST['team_id']);
+	}
+	if (isset($_REQUEST['project_type_nature'])) {
+		$project_type_nature = absint($_REQUEST['project_type_nature']);
+	}
+	
+	if (isset($_REQUEST['level'])) {
+		$level = $_REQUEST['level'];
 	}
 	else {
 		$level = null;
@@ -6807,21 +8097,28 @@ function mdid_project_fields() {
 	$fields = '<input type="hidden" name="mdid_checkout" value="1" />';
 	$fields .= '<input type="hidden" name="project_id" value="'.$project_id.'" />';
 	$fields .= '<input type="hidden" name="project_level" value="'.$level.'"/>';
+	$fields .= '<input type="hidden" id="user_prospect_id_pay" name="prospect_idd" value="'.$prospect_idd.'"/>';
+	$fields .= '<input type="hidden" id="project_type_nature" name="project_type_nature" value="'.$project_type_nature.'"/>';
+	$fields .= '<input type="hidden" name="current_url_page" value="'.$current_url_page.'"/>';
+	$fields .= '<input type="hidden" name="team_id_affi" value="'.$team_id.'"/>';
 	echo $fields;
 	return;
 }
 
-function idc_success_notification($post_id, $project_id) {
+function idc_success_notification($post_id, $project_id) 
+{
+	global $wpdb;
 	// create message
-	$text = idc_text_format(get_option('success_notification'));
+	$text = stripslashes(get_option('success_notification'));
 	if (empty($text)) {
-		$text = idc_text_format(get_option('success_notification_default'));
+		$text = stripslashes(get_option('success_notification_default'));
 	}
 	if (!empty($text)) {
 		// get project info
 		$project = new ID_Project($project_id);
 		$the_project = $project->the_project();
 		$end = get_post_meta($post_id, 'ign_fund_end', true);
+		 $new_time = current_time('m/d/Y H:i:s'); 
 		$post = get_post($post_id);
 		if (!empty($post)) {
 			$project_name = $post->post_title;
@@ -6841,65 +8138,240 @@ function idc_success_notification($post_id, $project_id) {
 			$coemail = $settings['coemail'];
 		}
 		else {
-			$coname = apply_filters('idc_company_name', '');
+			$coname = '';
 			$coemail = get_option('admin_email', null);
 		}
-		// filter merge tags
-		$merge_swap = array(
-			array(
-				'tag' => '{{PROJECT_NAME}}',
-				'swap' => $project_name
-				),
-			array(
-				'tag' => '{{PROJECT_URL}}',
-				'swap' => $project_url
-				),	
-			array(
-				'tag' => '{{END_DATE}}',
-				'swap' => $end
-				),
-			array(
-				'tag' => '{{COMPANY_NAME}}',
-				'swap' => $coname
-				),
-			array(
-				'tag' => '{{COMPANY_EMAIL}}',
-				'swap' => $coemail
-				),
-			);
-		foreach ($merge_swap as $swap) {
-			$text = str_replace($swap['tag'], $swap['swap'], $text);
-		}
-		// get all orders
+		
+		
+		/* <tr valign="middle" width="100%">
+		     <td>Billing Address</td><td>{{billing_address}}</td>
+		   </tr> */
 		$idcf_orders = ID_Order::get_orders_by_project($project_id);
 		if (!empty($idcf_orders)) {
 			$email_array = array();
-			foreach ($idcf_orders as $idcf_order) {
-				$email = $idcf_order->email;
+			foreach ($idcf_orders as $idcf_order) 
+			{
 				$pay_id = $idcf_order->id;
+				$sql = "select * from wp_ign_pay_info where id=$pay_id ";
+				$result = $wpdb->get_row($sql);
+				$name = ucfirst($result->first_name).' '.ucfirst($result->last_name);
+				
+				$text = '';	
+				$text .= '<div class="thanku_card" style="margin: 0 auto; max-width: 90%; text-align: center;">
+						 <div class="logo" style="padding: 25px 0px;"><a href="#"><img src="https://pledje.com/wp-content/uploads/2017/05/logo.png" alt="Pledje" /></a></div>
+						<div class="handshake_thanku" style="background: #68bd45; padding: 20px 0px;">
+						<h2 style="margin: 0px; color: #fff;">THANK YOU,</h2>
+						<h5 style="margin: 0px 0px 20px 0px; color: #fff;">YOU ARE AWESOME</h5>
+						<img src="https://pledje.com/wp-content/uploads/2017/05/hand-shake.png" alt="Pledje" />
+
+						</div>
+						<div class="thanku_content" style="font-size: 20px; margin: 20px auto; max-width: 450px; text-align: left;">';	
+				$text .= '
+				Congratulations!
+				{{name}},
+				
+				{{PROJECT_NAME}} has successfully reached its funding goal.				
+				
+				 Thanks for your support!
+				  
+				';
+				
+				$org_name = get_post_meta($post_id,'organization_name',true);
+				$org_address = get_post_meta($post_id,'organization_address',true);
+				$org_description = get_post_meta($post_id,'description',true);
+				$o5013c_number = get_post_meta($post_id,'5013c_number',true);
+				$billing_address = get_post_meta($post_id,'billing_address',true);
+				
+				
+				$text .='<table style="font-size:16px;border-collapse: collapse;border: 1px solid #ddd;">
+				<tbody>
+				   <tr valign="top" width="100%" style="border: 1px solid #ddd;">
+					 <td style="border: 1px solid #ddd;">Organization</td><td style="border: 1px solid #ddd;">{{org_name}}</td>
+				   </tr>
+				   <tr valign="top" width="100%" style="border-top:1px solid #ddd;border-bottom:1px solid #ddd;">
+					 <td style="border: 1px solid #ddd;">Organization Address</td><td style="border:1px solid #ddd;">{{org_address}}</td>
+				   </tr>';
+				if(!empty($org_description)) 
+				{					
+				   $text .='<tr valign="top" width="100%" style="border-top:1px solid #ddd;border-bottom:1px solid #ddd;">		   
+					 <td style="border:1px solid #ddd;">Description</td><td style="border:1px solid #ddd;">{{org_description}}</td>
+				   </tr>';
+				}  
+				  $text .=' <tr valign="top" width="100%" style="border-top:1px solid #ddd;border-bottom:1px solid #ddd;">
+					 <td style="border:1px solid #ddd;">Name of the Campaign</td><td style="border:1px solid #ddd;">{{PROJECT_NAME}}</td>
+				   </tr>
+				   <tr valign="top" width="100%" style="border-top:1px solid #ddd;border-bottom:1px solid #ddd;">
+					 <td style="border:1px solid #ddd;">Non-Profit Tax ID</td><td style="border:1px solid #ddd;">{{o5013c_number}}</td>
+				   </tr> 
+			
+				</tbody></table>';
+				
+				$email = $idcf_order->email;
+				
 				$mdid_order = mdid_payid_check($pay_id);
-				if (!empty($mdid_order) && !in_array($email, $email_array)) {
+				if(!empty($mdid_order)) 
+				{
 					$idc_order = $mdid_order->order_id;
 					$order = new ID_Member_Order($idc_order);
 					$the_order = $order->get_order();
-					if (!empty($the_order)) {
+					if(!empty($the_order)) 
+					{
+						$sql = "select * from wp_ign_pay_info where id=$pay_id ";
+						$result = $wpdb->get_row($sql);
+						
+						$curr = "select * from wp_super_donar where oder_id=$pay_id";
+						$result_curr= $wpdb->get_row($curr);
+						
+						$currency_symbol = $result_curr->currency_symbol;
+						$currency = strtoupper ($result_curr->currency);
+						$plan_start_date = date("d-m-Y", strtotime($result->created_at));
+						$price = $the_order->price;
+						
+						$main_currency = get_post_meta($post_id,'campaign_currency',true);
+						$currency_symbol_arrm = explode("(",$main_currency);
+						if($currency_symbol_arrm[0] != $result_curr->currency)
+						{
+						   $price = round(convertCurrency($price,$currency_symbol_arrm[0],$result_curr->currency));
+						}
+						
+				        if($result->emi == '1' || $result->emi == 1 )
+						{
+							$sql_mul = "select * from wp_multiple_payment where transaction_id = '".$result->transaction_id ."'";
+							$res_mul = $wpdb->get_row($sql_mul);
+							
+							$no_of_month_plan = $res_mul->months;
+							$per_month_amt = round($price/$no_of_month_plan,2);
+							//$plan_start_date = $res_mul->start_date;
+							
+							if($res_mul->months > 1)
+							{																
+								$text .= '
+									Donation : <span style="color:#68bd45;">{{no_of_month_plan}}Monthly Installments</span>
+									Total Amount of Donation : <span style="color:#68bd45;">{{currency_symbol}}{{AMOUNT}}{{currency}}</span>
+									Number of Months Remaining : <span style="color:#68bd45;">{{left_month_plan}} </span>
+									Amount of Each Monthly Donation : <span style="color:#68bd45;">{{currency_symbol}}{{per_month_amount}} </span>
+									Amount Paid So Far : <span style="color:#68bd45;"> {{currency_symbol}}{{per_month_amount}} </span>
+									Start Date : <span style="color:#68bd45;"> {{plan_start_date}} </span>
+									';
+							}
+							else
+							{
+								$text .= '				
+									  Total Amount of Donation : <span style="color:#68bd45;"> {{currency_symbol}}{{AMOUNT}} {{currency}} </span>					
+									  Date : <span style="color:#68bd45;"> {{plan_start_date}} </span>
+									';
+							}
+						} 
+						else
+						{
+							
+							$text .= '				
+									  Total Amount of Donation : <span style="color:#68bd45;"> {{currency_symbol}}{{AMOUNT}} {{currency}} </span>					
+									  Date : <span style="color:#68bd45;"> {{plan_start_date}} </span>
+									';
+						} 
+						
+						//$text .='hello';
+						$text .= '</div></div>';
+				
+				// filter merge tags
+					$merge_swap = array(
+						array(
+							'tag' => '{{PROJECT_NAME}}',
+							'swap' => $project_name
+							),
+						array(
+							'tag' => '{{PROJECT_URL}}',
+							'swap' => $project_url
+							),	
+						array(
+							'tag' => '{{END_DATE}}',
+							'swap' => $end
+							),
+						array(
+							'tag' => '{{COMPANY_NAME}}',
+							'swap' => $coname
+							),
+						array(
+							'tag' => '{{COMPANY_EMAIL}}',
+							'swap' => $coemail
+							),
+						array(
+							'tag' => '{{no_of_month_plan}}',
+							'swap' => $no_of_month_plan
+							),
+						array(
+							'tag' => '{{left_month_plan}}',
+							'swap' => $no_of_month_plan-1
+							),
+						array(
+							'tag' => '{{plan_start_date}}',
+							'swap' => $plan_start_date
+							),
+						array(
+							'tag' => '{{per_month_amount}}',
+							'swap' => $per_month_amt
+							),
+						array(
+							'tag' => '{{org_name}}',
+							'swap' => $org_name
+							),
+						array(
+							'tag' => '{{org_address}}',
+							'swap' => $org_address
+							),
+						array(
+							'tag' => '{{org_description}}',
+							'swap' => $org_description
+							),
+						array(
+							'tag' => '{{o5013c_number}}',
+							'swap' => $o5013c_number
+							),						
+						array(
+								'tag' => '{{AMOUNT}}',
+								'swap' => $price
+							 ),
+					    array(
+								'tag' => '{{currency_symbol}}',
+								'swap' => $currency_symbol
+							 ),
+						 array(
+								'tag' => '{{name}}',
+								'swap' => $name
+							 ),
+						 array(
+								'tag' => '{{currency}}',
+								'swap' => $currency
+							 ),
+						);
+			
+
+                        foreach ($merge_swap as $swap) 
+						{
+							$text = str_replace($swap['tag'], $swap['swap'], $text);
+						}
+		                   
 						$user_id = $the_order->user_id;
 						$user = get_user_by('id', $user_id);
-						if (!empty($user)) {
+						if (!empty($user)) 
+						{
 							$fname = $user->user_firstname;
 							$lname = $user->user_lastname;
 							$name_text = str_replace('{{NAME}}', $fname.' '.$lname, $text);
 						}
-						$amount = $the_order->price;
-						$price = apply_filters('idc_order_price', $amount, $idc_order);
-						$user_text = str_replace('{{AMOUNT}}', $price, $name_text);
-						$message = '<html><body>';
+						$amount = $price;
+						$user_text = str_replace('{{AMOUNT}}', $amount, $name_text);
+						$message = '<html><body>' ;				
 						$message .= wpautop($user_text);
 						$message .= '</body></html>';
-						$subject = __('Successful Project Notification', 'memberdeck');
-						$mail = new ID_Member_Email($email, $subject, $message, (isset($user_id) ? $user_id : ''));
-						$send_mail = $mail->send_mail();
-						$email_array[] = $email;
+						$subject = __('Campaign Success Notification', 'memberdeck');
+						 if(strtotime($end)>= strtotime($new_time))
+						{
+						   $mail = new ID_Member_Email($email, $subject, $message, (isset($user_id) ? $user_id : ''));
+						   $send_mail = $mail->send_mail();
+						   $email_array[] = $email; 
+					    }
 					}
 				}
 				
@@ -6908,11 +8380,12 @@ function idc_success_notification($post_id, $project_id) {
 	}
 }
 
-function idc_success_notification_admin($post_id, $project_id) {
+function idc_success_notification_admin($post_id, $project_id) 
+{
 	// create message
-	$text = idc_text_format(get_option('success_notification_admin'));
+	$text = stripslashes(get_option('success_notification_admin'));
 	if (empty($text)) {
-		$text = idc_text_format(get_option('success_notification_admin_default'));
+		$text = stripslashes(get_option('success_notification_admin_default'));
 	}
 	if (!empty($text)) {
 		// get project info
@@ -7072,9 +8545,8 @@ function mdid_get_selected() {
 
 function mdid_insert_payinfo($fname = null, $lname = null, $email = null, $project_id, $transaction_id, $proj_level, $price, $status = 'P', $created_at = null) {
 	//echo $fname.$lname.$email.$project_id.$transaction_id.$proj_level.$price.$status.$created_at;
-	// #devnote this should use ID Project class
 	if (empty($created_at)) {
-		$created_at = date('Y-m-d H:i:s');
+		$created_at = date('Y-m-d h:i:s');
 	}
 	global $wpdb;
 	$sql = $wpdb->prepare('INSERT INTO '.$wpdb->prefix.'ign_pay_info (first_name,
@@ -7100,8 +8572,6 @@ function mdid_insert_payinfo($fname = null, $lname = null, $email = null, $proje
 	$res = $wpdb->query($sql);
 	$pay_id = $wpdb->insert_id;
 	if (isset($pay_id)) {
-		do_action('id_modify_order', 'insert', $pay_id);
-		do_action('id_insert_order', $pay_id);
 		return $pay_id;
 	}
 }
@@ -7129,7 +8599,8 @@ function mdid_remove_order($order_id) {
 	$res = $wpdb->query($sql);
 }
 
-function mdid_member_orders($user_id) {
+function mdid_member_orders($user_id) 
+{
 	global $wpdb;
 	//$sql = $wpdb->prepare('SELECT * FROM '.$wpdb->prefix.'memberdeck_orders LEFT JOIN '.$wpdb->prefix.'mdid_orders WHERE '.$wpdb->prefix.'memberdeck_orders.')
 }
@@ -7206,23 +8677,6 @@ function mdid_by_orderid($order_id) {
 	$sql = $wpdb->prepare('SELECT * FROM '.$wpdb->prefix.'mdid_orders WHERE order_id = %d', $order_id);
 	$res = $wpdb->get_row($sql);
 	return $res;
-}
-
-function mdid_pay_id_by_orderid($order_id) {
-	$mdid_order = mdid_by_orderid($order_id);
-	if (empty($mdid_order)) {
-		return null;
-	}
-	return $mdid_order->pay_info_id;
-}
-
-function mdid_idcf_order_by_orderid($order_id) {
-	$pay_id = mdid_pay_id_by_orderid($order_id);
-	if (empty($pay_id)) {
-		return null;
-	}
-	$id_order = new ID_Order($pay_id);
-	return $id_order->get_order();
 }
 
 function mdid_set_collected($pay_id, $txn_id) {
@@ -7457,17 +8911,321 @@ if ($crowdfunding) {
 	add_action('wp_ajax_nopriv_mdid_save_assignments', 'mdid_save_assignments');
 }
 
-if (defined('ID_DEV_MODE') && 'ID_DEV_MODE' == true) {
-	add_action('activated_plugin','idc_save_activation_error');
-}
-function idc_save_activation_error(){
+// add_action('activated_plugin','save_error');
+function save_error(){
     update_option('plugin_error',  ob_get_contents());
 }
-if (defined('ID_DEV_MODE') && 'ID_DEV_MODE' == true) {
-	//add_action('init', 'idc_debugging');
+
+// add_action('init', 'test');
+
+function test() {
+	echo get_option('plugin_error');
 }
 
-function idc_debugging() {
-	//echo get_option('plugin_error');
+/******************** Splash customer creation ****************************/
+function splash_customer_create($fname,$lname,$email,$address1,$city,$zip,$state,$phone1)
+{
+	$cust_info_arr = array (
+							  'first' => $fname,
+							  'last' => $lname,
+							  'email' => $email																
+							);
+	
+     $cust_extra_arr = array();
+     if($address1 != "")	 
+			$cust_extra_arr['address1']	= $address1." ".$state ;
+	 if($city != "")	 
+			$cust_extra_arr['city']	= $city;	
+	 if($zip != "")	 
+			$cust_extra_arr['zip']	= $zip;
+	 if($state != "")	 
+			$cust_extra_arr['state'] = $state;
+     if($phone1 != "")	 
+			$cust_extra_arr['phone'] = $phone1;	
+     if($state != "" &&$address1 == "" )		
+		    $cust_extra_arr['address1'] = $state;		
+		
+	$cust_info_arr = array_merge($cust_info_arr,$cust_extra_arr);	
+	
+				    $object = new \SplashPayments\customers(
+															 $cust_info_arr	
+															);
+		return	 $object;													
 }
+
+/******************** Splash Customer Update ****************************/
+function splash_customer_update($id,$fname,$lname,$email,$address1,$city,$zip,$state,$phone1)
+{
+	$cust_info_arr = array (
+	                          'id' => $id,
+							  'first' => $fname,
+							  'last' => $lname,
+							  'email' => $email																
+							);
+	
+     $cust_extra_arr = array();
+     if($address1 != "")	 
+			$cust_extra_arr['address1']	= $address1." ".$state ;
+	 if($city != "")	 
+			$cust_extra_arr['city']	= $city;	
+	 if($zip != "")	 
+			$cust_extra_arr['zip']	= $zip;
+	 if($state != "")	 
+			$cust_extra_arr['state'] = $state;
+     if($phone1 != "")	 
+			$cust_extra_arr['phone'] = $phone1;	
+     if($state != "" &&$address1 == "" )		
+		    $cust_extra_arr['address1'] = $state;		
+		
+	$cust_info_arr = array_merge($cust_info_arr,$cust_extra_arr);	
+	
+				    $object = new \SplashPayments\customers(
+															 $cust_info_arr	
+															);
+		return	 $object;													
+}
+
+/********************* splash customer token creation with credit card ****************************/
+function splash_token_create($custid,$method,$cc_number,$cc_code,$cc_expiry,$state, $zip,$email)
+{
+				return	$object = new \SplashPayments\tokens(
+																	array (
+																		'customer' => $custid,
+																		'payment' => array(	
+																		'method' => $method,
+																		'number' => $cc_number,
+																		'cvv' => $cc_code,
+																		'expiration' => $cc_expiry,
+																		'state'=>$state,
+																		'zip'=> $zip ,
+																		'email'=>$email
+																		),
+																	)
+																);
+}	
+
+/**************************** Create Plan for EMI ********************************************/
+
+function splash_plan_create($merchantId,$price,$no_of_month_plan,$currency,$fname,$lname,$camp_id_dynamic)
+{
+	$price = $price/$no_of_month_plan;
+//	$price1 = convertCurrency($price, $currency, "USD");
+     $price = round($price,2);	
+	 
+	 $title = get_the_title($camp_id_dynamic);
+	 
+	 $name = $fname.' '.$lname.' '.$title.' SUBS';
+	
+	return	$object = new \SplashPayments\plans(
+												 array(
+														'merchant' => $merchantId,
+														'schedule' => 3,
+														'name' => $name ,													
+														'amount'=>$price*100
+													   )
+										       );
+}
+
+/********************** Create Susbscription for EMI **********************/
+
+function splash_subscription_create($plan_id,$plan_start_date,$no_of_month_plan){
+	$no_of_month_plan = $no_of_month_plan-2;
+	return	$object = new \SplashPayments\subscriptions(
+											 array(
+													'plan' => $plan_id,
+													'start' => date('Ymd',strtotime($plan_start_date)),
+													'finish' => date('Ymd', strtotime("+$no_of_month_plan months", strtotime($plan_start_date)))
+												  )
+										);
+}
+
+/******************** Create Susbscription Token for EMI  *********************************/
+
+function splash_subscription_token_create($sub_id,$tokenId)
+{
+	return	$object = new \SplashPayments\subscriptionTokens(
+											 array(
+													'subscription' => $sub_id,
+													'token' => $tokenId
+												   )
+										);
+}
+
+/********************* splash customer token creation with check ****************************/
+function splash_token_create_check($custid,$method,$card_check_number,$routing_number,$state, $zip,$email)
+{
+				return	$object = new \SplashPayments\tokens(
+																	array (
+																		'customer' => $custid,
+																		'payment' => array(	
+																		'method' => 8,
+																		'number' => $card_check_number,
+																		'routing' => $routing_number,
+																		//'expiration' => $cc_expiry,
+																		'state'=>$state,
+																		'zip'=> $zip ,
+																		'email'=>$email
+																		),
+																	)
+																);
+}
+
+/*********************** splash transaction  ***********************************/
+function splash_txns_create($merchantId,$tokenId,$price,$currency,$paybymethod)
+{
+  //  $price = convertCurrency($price, $currency, "USD");	
+	if($paybymethod == 'Check')
+	{
+									return	$object = new \SplashPayments\txns(
+											 array(
+													'merchant' => $merchantId,
+													'type' => 7,
+													'origin' => 8,
+													'token' => $tokenId,
+													'total'=>$price*100
+												   )
+										);
+	}
+	else
+	{
+		return	$object = new \SplashPayments\txns(
+											 array(
+													'merchant' => $merchantId,
+													'type' => 2,
+													'origin' => 2,
+													'token' => $tokenId,
+													'total'=>$price*100
+												   )
+										);
+	}
+}
+
+/****************** Auth Transaction with EMI ****************************/
+function auth_transaction_emi($merchantId,$tokenId,$price,$currency,$no_of_month_plan,$sub_id)
+{
+	$price = $price/$no_of_month_plan;
+	//$price1 = convertCurrency($price, $currency, "USD");
+    $price = round($price,2);
+	
+				return	$object = new \SplashPayments\txns(
+															array(
+																	'merchant' => $merchantId,
+																	'type' => 2,
+																	'origin' => 2,
+																	'token' => $tokenId,
+																	'subscription'=>$sub_id,
+																	'total'=>$price*100
+																 )
+														  );
+}
+
+/********************* Currency Converter**********************/	
+function convertCurrency($amount, $from, $to)
+{  
+   /* $url  = "https://finance.google.com/finance/converter?a=$amount&from=$from&to=$to";
+    $data = curl_get_contents($url);
+    preg_match("/<span class=bld>(.*)<\/span>/",$data, $converted);
+    $converted = preg_replace("/[^0-9.]/", "", $converted[1]); */
+	
+	$url  = "http://data.fixer.io/api/convert?access_key=5e79dd0e35d124053c567b07161c1721&from=$from&to=$to&amount=$amount";
+    $data = curl_get_contents($url);
+    $value = json_decode($data,true);
+    return round($value['result'],2);	
+	
+  //  return round($amount, 2);
+}
+
+function curl_get_contents($url)
+{
+    $ch = curl_init();
+
+    curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch,CURLOPT_FOLLOWLOCATION,true);
+    curl_setopt($ch, CURLOPT_URL, $url);
+
+    $data = curl_exec($ch);
+    curl_close($ch);
+
+    return $data;
+}
+
+
+/************************* Decline insert *************************************/	
+
+function decline_payment_save($fname,$lname,$email,$address1,$city,$zip,$state,$price,$product_id_checkout,$currency)
+{	
+	global $wpdb;
+  	
+	//$price = convertCurrency($price, $currency, "USD");
+	$wpdb->insert('wp_decline_payment',array(
+	                                           'first_name' => $fname,
+											   'last_name' => $lname,
+											   'email' => $email ,
+											   'address' => $address1 ,
+											   'state' => $state ,
+											   'city'  => $city ,
+											    'zip' => $zip ,
+	                                           'prod_price' => $price ,
+	                                           'product_id' => $product_id_checkout ,
+											   'created_at' => date('Y-m-d H:i:s'),
+                                               'status' => 'D'											   
+	                                        ),
+									   array(
+									          '%s',
+									          '%s',
+											  '%s',
+											  '%s',
+											  '%s',
+											  '%s',
+											  '%d',
+											  '%d',
+											  '%d',
+											  '%s',
+											  '%s'
+									        )
+			     );
+}									
+
+/**************** checking payment method **********************/
+
+function validatecard($number)
+ {
+    global $type;
+
+    $cardtype = array(
+        "visa"       => "/^4[0-9]{12}(?:[0-9]{3})?$/",
+        "mastercard" => "/^5[1-5][0-9]{14}$/",
+        "amex"       => "/^3[47][0-9]{13}$/",
+        "discover"   => "/^6(?:011|5[0-9]{2})[0-9]{12}$/",
+    ); 
+
+    if(preg_match($cardtype['visa'],$number))
+    {
+	    $type= "visa";
+        return 2;
+	
+    }
+    else if(preg_match($cardtype['mastercard'],$number))
+    {
+	    $type= "mastercard";
+        return 3;
+    }
+    else if(preg_match($cardtype['amex'],$number))
+    {
+	    $type= "amex";
+        return 1;
+	
+    }
+    else if(preg_match($cardtype['discover'],$number))
+    {
+	    $type= "discover";
+        return 5;
+    }
+    else
+    {
+        return false;
+    } 
+ }
+
 ?>

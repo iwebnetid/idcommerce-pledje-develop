@@ -1,12 +1,12 @@
 <h2 class="border-bottom"><?php _e('Shipping Address', 'memberdeck'); ?></h2>
-<p class="desc-note"><?php _e('Please provide an accurate mailing address.', 'memberdeck'); ?>
+<p class="desc-note"><?php _e('Please provide your up-to-date shipping address.  Your First and Last name will be used as well.', 'memberdeck'); ?>
 </p>
 <div class="form-row full">
 	<label for="address"><?php _e('Address', 'memberdeck'); ?></label>
 	<input type="text" size="20" class="address" name="address" value="<?php echo (isset($shipping_info['address']) ? $shipping_info['address'] : ''); ?>"/>
 </div>
 <div class="form-row full">
-	<label for="address_two"><?php _e('Address Line 2', 'memberdeck'); ?></label>
+	<label for="address_two"><?php _e('Phone', 'memberdeck'); ?></label>
 	<input type="text" size="20" class="address_two" name="address_two" value="<?php echo (isset($shipping_info['address_two']) ? $shipping_info['address_two'] : ''); ?>"/>
 </div>
 <div class="form-row half left">
@@ -23,13 +23,5 @@
 </div>
 <div class="form-row half">
 	<label for="country"><?php _e('Country', 'memberdeck'); ?></label>
-	<?php if (!empty($countries)) { ?>
-		<select name="country" class="country select">
-			<?php foreach ($countries as $country) {
-				echo '<option value="'.$country->code.'" '.(isset($shipping_info['country']) && $shipping_info['country'] == $country->code ? 'selected="selected"' : '').'>'.$country->name.'</option>';
-			} ?>
-		</select>
-	<?php } else { ?>
 	<input type="text" size="20" class="country" name="country" value="<?php echo (isset($shipping_info['country']) ? $shipping_info['country'] : ''); ?>"/>
-	<?php } ?>
 </div>

@@ -161,12 +161,12 @@
 								<?php echo $project_name; ?>
 							</p>
 						</div>
-						<div>
+						<!-- <div>
 							<p>
 								<label><b><?php _e('Level', 'memberdeck'); ?></b></label><br/>
 								<?php echo absint($idcf_order_details->product_level); ?>
 							</p>
-						</div>
+						</div> -->
 						<div>
 							<p>
 								<label><b><?php _e('Price', 'memberdeck'); ?></b></label><br/>

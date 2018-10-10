@@ -63,23 +63,6 @@ class ID_Member_Subscription {
 		$res = $wpdb->query($sql);
 	}
 
-	function is_subscription_renewable() {
-		$renewable = false;
-		$find_sub = $this->find_subscription();
-		if (empty($find_sub)) {
-			return true;
-		}
-		$level = ID_Member_Level::get_level($find_sub->level_id);
-		if (!empty($level)) {
-			$limit_term = $level->limit_term;
-			if ($limit_term && $level->term_length <= $find_sub->payments) {
-				// perpetual subscription
-				$renewable = true;
-			}
-		}
-		return $renewable;
-	}
-
 	public static function has_subscription($user_id) {
 		global $wpdb;
 		$sql = $wpdb->prepare('SELECT * FROM '.$wpdb->prefix.'memberdeck_subscriptions WHERE user_id = %d and status = %s', $user_id, 'active');

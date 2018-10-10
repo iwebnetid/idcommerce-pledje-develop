@@ -14,15 +14,15 @@
 							<span class="idc-dropdown">
 								<select name="level_select" id="level_select" class="idc-dropdown__select level_select">
 								<?php foreach ($level as $k=>$v) { ?>
-									<option value="<?php echo $v->id; ?>" data-price="<?php echo apply_filters('idc_price_format', $v->level_price); ?>"><?php echo $v->level_name; ?></option>
+									<option value="<?php echo $v->id; ?>" data-price="<?php echo $v->level_price; ?>"><?php echo $v->level_name; ?></option>
 								<?php } ?>
 								</select>
 							</span>
 						</label>
 					<?php } else { ?>
 						<label for="price"><?php _e('Total', 'memberdeck'); ?></label>
-						<input type="text" class="total" name="price" id="price" value="<?php echo apply_filters('idc_price_format', $level->level_price); ?>"/>
-						<span class="idc-button-default-price hide" data-level-price="<?php echo apply_filters('idc_price_format', $level->level_price); ?>"></span>
+						<input type="text" class="total" name="price" id="price" value="" placeholder="<?php _e('Default Price', 'memberdeck'); ?>: <?php echo $currency_symbol.apply_filters('idc_price_format', $level->level_price) ?>" required/>
+						<span class="idc-button-default-price hide" data-level-price="<?php echo $level->level_price ?>"></span>
 					<?php } ?>
 				</div>
 				<?php if (is_array($level)) { ?>
@@ -38,7 +38,7 @@
 					<input type="hidden" name="product_id" value="<?php echo (is_array($product_id) ? $product_id[0] : $product_id); ?>"/>
 				</div>
 				<div class="form-row submit">
-					<input type="submit" name="idc_button_submit" class="btn idc_button_submit" value="<?php _e('Next Step', 'memberdeck'); ?>"/>
+					<input type="submit" name="idc_button_submit" class="btn idc_button_submit" value="<?php _e('Donate Now', 'memberdeck'); ?>"/>
 				</div>
 			</form>
 		</div>

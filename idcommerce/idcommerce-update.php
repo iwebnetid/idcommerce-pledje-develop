@@ -35,16 +35,13 @@ add_filter('pre_set_site_transient_update_plugins', 'check_for_idc_update', 20);
 function check_for_idc_update($checked_data) {
 	global $api_url, $idc_plugin_slug, $wp_version;
 
-	$plugin_file = $idc_plugin_slug .'/'. $idc_plugin_slug .'.php';
-
 	//Comment out these two lines during testing.
 	if (empty($checked_data->checked)) {
 		return $checked_data;
 	}
-
 	$args = array(
 		'slug' => $idc_plugin_slug,
-		'version' => idc_current_version(),
+		'version' => $checked_data->checked[$idc_plugin_slug .'/'. $idc_plugin_slug .'.php'],
 	);
 
 	// Start checking for an update
@@ -55,7 +52,7 @@ function check_for_idc_update($checked_data) {
 	}
 
 	if (is_object($response) && !empty($response)) // Feed the update data into WP updater
-		$checked_data->response[$plugin_file] = $response;
+		$checked_data->response[$idc_plugin_slug .'/'. $idc_plugin_slug .'.php'] = $response;
 
 	return $checked_data;
 }
@@ -66,13 +63,14 @@ add_filter('plugins_api', 'idc_api_call', 10, 3);
 function idc_api_call($def, $action, $args) {
 	global $idc_plugin_slug, $api_url, $wp_version, $api_key;
 
-	$plugin_file = $idc_plugin_slug .'/'. $idc_plugin_slug .'.php';
-
 	if (!isset($args->slug) || ($args->slug !== $idc_plugin_slug)) {
 		return $def;
 	}
 
-	$args->version = idc_current_version();
+	// Get the current version
+	$plugin_info = get_site_transient('update_plugins');
+	$current_version = $plugin_info->checked[$idc_plugin_slug .'/'. $idc_plugin_slug .'.php'];
+	$args->version = $current_version;
 
 	$request = idc_update_info($action, $args);
 
@@ -104,15 +102,11 @@ function idc_update_info($action, $args) {
 	return $request;
 }
 
-function idc_current_version() {
-	global $idc_plugin_slug;
-	$plugin_file = $idc_plugin_slug .'/'. $idc_plugin_slug .'.php';
-	$plugin_info = get_plugin_data(WP_PLUGIN_DIR.'/'.$plugin_file);
-	return $plugin_info['Version'];
-}
-
 function is_idc_free() {
 	if (is_idc_licensed()) {
+		return false;
+	}
+	else if (was_idc_licensed()) {
 		return false;
 	}
 	return true;
@@ -134,6 +128,10 @@ function idc_license_type() {
 	$is_licensed = is_idc_licensed();
 	if ($is_licensed) {
 		return 'active';
+	}
+	$was_licensed = was_idc_licensed();
+	if ($was_licensed) {
+		return 'expired';
 	}
 	return 'free';
 }

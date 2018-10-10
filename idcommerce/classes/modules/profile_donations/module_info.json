@@ -4,6 +4,5 @@
   "doclink":"",
   "status":"live",
   "type":"module",
-  "requires": "ide",
-  "tags": "crowdfunding"
+  "requires": "ide"
 }

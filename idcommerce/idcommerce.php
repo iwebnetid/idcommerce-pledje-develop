@@ -8,7 +8,7 @@
 Plugin Name: IgnitionDeck Commerce
 URI: http://IgnitionDeck.com
 Description: A powerful, yet simple, content delivery system for WordPress. Features a widgetized dashboard so you can customize your product offerings, instant checkout, credits, and more.
-Version: 1.9.30
+Version: 1.7.6
 Author: Virtuous Giant
 Author URI: http://VirtuousGiant.com
 License: GPL2
@@ -17,7 +17,7 @@ License: GPL2
 define( 'IDC_PATH', plugin_dir_path(__FILE__) );
 
 global $memberdeck_db_version;
-$memberdeck_db_version = "1.9.30";
+$memberdeck_db_version = "1.7.6";
 global $old_idc_version;
 $old_idc_version = get_option('memberdeck_db_version');
 
@@ -59,9 +59,7 @@ include_once 'idcommerce-admin.php';
 include_once 'idcommerce-filters.php';
 
 // Loading modules
-if (class_exists('ID_Modules')) {
-	include_once 'classes/class-idc-modules.php';
-}
+include_once 'classes/class-idc-modules.php';
 global $s3;
 $s3_enabled = $s3;
 if ($s3_enabled) {
@@ -82,10 +80,6 @@ if (!is_idc_free() && function_exists('is_id_pro') && is_id_pro()) {
 if (function_exists('is_id_pro') && is_id_pro()) {
 	include_once 'inc/idcommerce-ide.php';
 }
-include_once 'inc/idcommerce-coinbase.php';
-if (!is_idc_free()) {
-	include_once 'inc/idcommerce-adaptive.php';
-}
 global $crowdfunding;
 global $global_currency;
 if (class_exists('IDF')) {
@@ -93,6 +87,9 @@ if (class_exists('IDF')) {
 	if ($platform == 'idc') {
 		$pwyw = true;
 	}
+}
+if (!is_idc_free()) {
+	include_once 'inc/idcommerce-adaptive.php';
 }
 
 // Adding image size for thumbnails on Dashboard
@@ -108,19 +105,22 @@ function idc_activation() {
 }
 register_activation_hook( __FILE__, 'idc_activation' );
 
-
 function idc_languages() {
   	load_plugin_textdomain( 'memberdeck', false, dirname( plugin_basename( __FILE__ ) ).'/languages/' );
   	load_plugin_textdomain( 'idcommerce', false, dirname( plugin_basename( __FILE__ ) ).'/languages/' );
+  	add_filter('idc_localization_strings', 'idc_localization_strings');
 }
 
 add_action('plugins_loaded', 'idc_languages');
 
 function idc_init() {
 	do_action('idc_init');
-  	$general = maybe_unserialize(get_option('md_receipt_settings'));
+  	$general = get_option('md_receipt_settings');
 	if (!empty($general)) {
-		if (isset($general['disable_toolbar']) && $general['disable_toolbar']) {
+		if (!is_array($general)) {
+			$general = unserialize($general);
+		}
+		if (isset($general['disable_toolbar']) && $general['disable_toolbar'] == 1) {
 			if (!current_user_can('administrator') && !is_admin()) {
   				show_admin_bar(false);
 			}
@@ -132,9 +132,8 @@ add_action('init', 'idc_init', 1);
 
 function idc_install_checks() {
 	global $memberdeck_db_version;
-	// #devnote do we need both install check and old_db_version?
 	$install_check = get_option('idc_last_install_check');
-	if (empty($install_check) || !version_compare($install_check,$memberdeck_db_version, '>=')) {
+	if (empty($install_check) || $install_check < $memberdeck_db_version) {
 		// perform changes specific to current version
 		memberdeck_install();
 	}
@@ -162,10 +161,10 @@ function idc_localization_strings() {
 	$strings = array();
 	$strings['virtual_currency'] = __('Virtual Currency', 'memberdeck');
 	$strings['purchase_form_shortcode'] = __('Purchase form shortcode', 'memberdeck');
-	$strings['continue'] = __('Continue', 'memberdeck');
-	$strings['complete_checkout'] = __('Complete Checkout', 'memberdeck');
+	$strings['continue'] = __('Continue Checkout', 'memberdeck');
+	$strings['complete_checkout'] = __('DONATE', 'memberdeck');
 	$strings['use_idcf_settings'] = __('Use IDCF Setting', 'memberdeck');
-	$strings['continue_checkout'] = __('Continue Checkout', 'memberdeck');
+	$strings['continue_checkout'] = __('DONATE', 'memberdeck');
 	$strings['choose_product'] = __('Choose Product', 'memberdeck');
 	$strings['choose_download'] = __('Choose Download', 'memberdeck');
 	$strings['choose_credit'] = __('Choose Credit', 'memberdeck');
@@ -174,24 +173,22 @@ function idc_localization_strings() {
 	$strings['pay_with_credits'] = __('Pay with '.ucwords(apply_filters('idc_credits_label', 'Credits', true)), 'memberdeck');
 	$strings['processing'] = __('Processing', 'memberdeck');
 	$strings['choose_payment_method'] = __('Choose Payment Method', 'memberdeck');
-	$strings['pay_with_cc'] = __('Pay with Credit Card', 'memberdeck');
 	$strings['pay_with_paypal'] = __('Pay with Paypal', 'memberdeck');
 	$strings['pay_with_coinbase'] = __('Pay with Coinbase', 'memberdeck');
-	$strings['no_payments_available'] = __('No Payment Options Available', 'memberdeck');
+	$strings['no_payments_available'] = __('DONATE', 'memberdeck');
 	$strings['pass_dont_match'] = __('Passwords do not match', 'memberdeck');
 	$strings['processing'] = __('Processing', 'memberdeck');
-	$strings['stripe_credentials_problem_text'] = __('There is a problem with your Stripe credentials', 'memberdeck');
+	$strings['strip_credentials_problem_text'] = __('There is a problem with your Stripe credentials', 'memberdeck');
 	$strings['passwords_mismatch_text'] = __('Passwords do not match', 'memberdeck');
 	$strings['accept_terms'] = __('Please accept our', 'memberdeck');
 	$strings['error_in_processing_registration_text'] = __('There was an error processing your registration. Please contact site administrator for assistance', 'memberdeck');
-	$strings['complete_all_fields'] = __('Please complete all fields', 'memberdeck');
-	$strings['registration_fields_error_text'] = __('Please complete all fields and ensure password 5+ characters.', 'memberdeck');
+	$strings['complete_all_fields'] = __('Please complete all fields.', 'memberdeck');
+	$strings['registeration_fields_error_text'] = __('Please complete all fields and ensure password 5+ characters.', 'memberdeck');
 	$strings['email_already_exists'] = __('Email already exists', 'memberdeck');
 	$strings['please'] = __('Please', 'memberdeck');
 	$strings['login'] = __('Login', 'memberdeck');
 	$strings['update'] = __('Update', 'memberdeck');
-	$strings['choose_product'] == __('Choose Product', 'memberdeck');
-	return apply_filters('idc_localization_strings', $strings);
+	return $strings;
 }
 
 // Let's determine whether we are installing on multisite or standard WordPress
@@ -232,6 +229,69 @@ function memberdeck_install($blog_id = null) {
 	global $old_idc_version;
 
 	do_action('idc_before_install');
+	
+	if (!empty($old_idc_version) && $old_idc_version < '1.2.7') {
+		// new for 1.2.7 in order to normalize level data
+	    $members = ID_Member::get_members();
+	    foreach ($members as $member) {
+	    	$levels = $member->access_level;
+	    	if (!empty($levels)) {
+	    		$levels = unserialize($levels);
+	    		foreach ($levels as $level) {
+	    			$id_member = new ID_Member($member->user_id);
+	    			$add_level = $id_member->set_level($level);
+	    		}
+	    	}
+	    }
+		// convert serialized gateway settings into unserialized
+    	$idc_gateway_settings = get_option('memberdeck_gateways');
+    	if (!empty($idc_gateway_settings)) {
+    		if (!is_array($idc_gateway_settings)) {
+    			$idc_gateway_settings = unserialize($idc_gateway_settings);
+    		}
+    		update_option('memberdeck_gateways', $idc_gateway_settings);
+    	}
+	}
+
+	if (!empty($old_idc_version) && $old_idc_version <= '1.5.1') {
+		$get_db = get_page_by_title('Dashboard');
+		if (!empty($get_db)) {
+			$dash_settings = get_option('md_dash_settings');
+			if (!empty($dash_settings)) {
+				if (!is_array($dash_settings)) {
+					$dash_settings = unserialize($dash_settings);
+				}
+				$dash_settings['durl'] = $get_db->ID;
+				update_option('md_dash_settings', $dash_settings);
+			}
+		}
+	}
+
+	if (isset($old_idc_version) && $old_idc_version <= '1.5.4') {
+		$global_currency = get_option('idc_global_currency');
+		if (empty($global_currency)) {
+			update_option('idc_global_currency', 'USD');
+		}
+		// If global currency is to Use IDCF (deprecated), set it to USD and store in DB too
+		else if ($global_currency == "idcf") {
+			// Getting IDCF default currency
+			if (class_exists('ID_Project')) {
+				$default_settings = ID_Project::get_project_defaults();
+				if (is_object($default_settings)) {
+					$global_currency = $default_settings->currency_code;
+				} else {
+					$global_currency = "USD";
+				}
+				update_option('idc_global_currency', $global_currency);
+			}
+		}
+
+		// Module settings
+		$module_settings = get_option('idc_modules');
+		if (empty($module_settings)) {
+			update_option('idc_modules', array());
+		}
+	}
 
 	$prefix = md_wpdb_prefix($blog_id);
 
@@ -290,11 +350,8 @@ function memberdeck_install($blog_id = null) {
 					txn_type VARCHAR (250) NOT NULL DEFAULT 'capture',
 					level_type VARCHAR(250) NOT NULL,
 					recurring_type VARCHAR(250) NOT NULL DEFAULT 'NONE',
-					trial_period TINYINT(1),
-					trial_length MEDIUMINT(9),
-					trial_type VARCHAR(250),
 					limit_term TINYINT(1) NOT NULL,
-					term_length MEDIUMINT(9),
+					term_length MEDIUMINT(9) NOT NULL,
 					plan VARCHAR(250),
 					license_count MEDIUMINT(9),
 					enable_renewals TINYINT(1) NOT NULL,
@@ -303,15 +360,6 @@ function memberdeck_install($blog_id = null) {
 					combined_product MEDIUMINT(9) DEFAULT '0',
 					custom_message TINYINT(1) NOT NULL,
 					UNIQUE KEY id (id));";
-    dbDelta($sql);
-
-    $memberdeck_level_meta = $prefix . "memberdeck_level_meta";
-    $sql = "CREATE TABLE " . $memberdeck_level_meta . " (
-					id MEDIUMINT(9) NOT NULL AUTO_INCREMENT,
-			    	level_id MEDIUMINT(9) NOT NULL,
-			    	meta_key VARCHAR(255),
-			    	meta_value LONGTEXT,
-			    	UNIQUE KEY id (id));";
     dbDelta($sql);
 
     $memberdeck_credits = $prefix . "memberdeck_credits";
@@ -453,25 +501,6 @@ function idc_set_defaults() {
 	global $crowdfunding;
 	global $memberdeck_db_version;
 	global $old_idc_version;
-	if (version_compare($old_idc_version, '1.8.1', '<=')) {
-		$levels = ID_Member_Level::get_levels();
-		if (empty($levels)) {
-			return;
-		}
-		foreach ($levels as $level) {
-			if ($level->level_type == 'standard') {
-				$meta = idc_get_level_meta($level->id, 'exp_data', true);
-				if (!empty($meta)) {
-					return;
-				}
-				$data = array(
-					'term' => 'years',
-					'count' => '1'
-				);
-				idc_update_level_meta($level->id, 'exp_data', $data);
-			}
-		}
-	}
 
 	$registration_email_default = 
 		'<h3>{{COMPANY_NAME}} Payment Receipt</h3>
@@ -784,16 +813,16 @@ function idc_set_defaults() {
 		);
 		update_option('md_dash_settings', $dash_settings);
 	}
-	$receipt_settings = get_option('md_receipt_settings');
-	if (empty($receipt_settings)) {
-		$receipt_settings = array(
-			'co-name' => get_option('blogname'),
-			'co-email' => get_option('admin_email')
-		);
-		if (function_exists('is_id_pro') && is_id_pro()) {
-			$receipt_settings['creator_permissions'] = '3';
+	else {
+		if ($old_idc_version <= '1.5.5') {
+			if (!is_array($dash_settings)) {
+				$dash_settings = unserialize($dash_settings);
+			}
+			if (isset($get_db->ID)) {
+				$dash_settings['durl'] = $get_db->ID;
+				update_option('md_dash_settings', $dash_settings);
+			}
 		}
-		update_option('md_receipt_settings', $receipt_settings);
 	}
 }
 
@@ -840,16 +869,15 @@ global $crowdfunding;
 
 function memberdeck_styles() {
 	global $permalink_structure;
-	global $global_currency;
 	if (empty($permalink_structure)) {
 		$prefix = '&';
 	}
 	else {
 		$prefix = '?';
 	}
-	wp_register_script('idcommerce-js', plugins_url('js/idcommerce-min.js', __FILE__));
-	wp_register_script('idlightbox-js', plugins_url('js/lightbox-min.js', __FILE__));
-	wp_register_style('idcommerce', plugins_url('css/style-min.css', __FILE__));
+	wp_register_script('idcommerce-js', plugins_url('js/idcommerce.js', __FILE__));
+	wp_register_script('idlightbox-js', plugins_url('js/lightbox.js', __FILE__));
+	wp_register_style('idcommerce', plugins_url('css/style.css', __FILE__));
 	wp_register_style('font-awesome', "//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css");
 	wp_enqueue_script('jquery');
 	wp_enqueue_script('idcommerce-js');
@@ -908,6 +936,14 @@ function memberdeck_styles() {
 			else {
 				$eauthnet = '0';
 			}
+			
+			if (isset($settings['splashnet']) && !is_idc_free()) {  //Splash
+				$splashnet = $settings['splashnet'];
+			}
+			else {
+				$splashnet = '0';
+			}
+			
 			if (isset($settings['eppadap']) && !is_idc_free()) {
 				$eppadap = $settings['eppadap'];
 			}
@@ -928,41 +964,38 @@ function memberdeck_styles() {
 				}
 			}
 			wp_localize_script('idcommerce-js', 'memberdeck_mc', $mc);
-			wp_localize_script('idcommerce-js', 'memberdeck_global_currency', $global_currency);
-			wp_localize_script('idcommerce-js', 'memberdeck_ccode', md_currency_symbol($global_currency));
 			if ($es == '1') {
 				wp_localize_script( 'idcommerce-js', 'memberdeck_es', '1');
 				$pk = $settings['pk'];
 				$tpk = $settings['tpk'];
 				if ($test == '1') {
-					wp_localize_script( 'idcommerce-js', 'memberdeck_pk', (!empty($tpk) ? $tpk : '0'));
+					wp_localize_script( 'idcommerce-js', 'memberdeck_pk', $tpk);
 				}
 				else {
-					wp_localize_script( 'idcommerce-js', 'memberdeck_pk', (!empty($pk) ? $pk : '0'));
+					wp_localize_script( 'idcommerce-js', 'memberdeck_pk', $pk);
 				}
 			}
 			else {
 				wp_localize_script( 'idcommerce-js', 'memberdeck_es', '0');
 			}
 			if ($esc == '1') {
-				wp_register_style('sc_buttons', plugins_url('/lib/connect-buttons-min.css', __FILE__));
+				wp_register_style('sc_buttons', plugins_url('/lib/connect-buttons.css', __FILE__));
 				wp_enqueue_style('sc_buttons');
 			}
 			if ($epp == '1') {
 				wp_localize_script( 'idcommerce-js', 'memberdeck_epp', '1');
-				$pp_email = (!empty($settings['pp_email']) ? $settings['pp_email'] : array());
-				$test_email = (!empty($settings['test_email']) ? $settings['test_email'] : array());
-				$return_url = (!empty($settings['paypal_redirect']) ? $settings['paypal_redirect'] : home_url());
+				$pp_email = $settings['pp_email'];
+				$test_email = $settings['test_email'];
+				$return_url = $settings['paypal_redirect'];
 				if ($test == '1') {
-					wp_localize_script('idcommerce-js', 'memberdeck_pp', (!empty($test_email) ? $test_email : array()));
+					wp_localize_script('idcommerce-js', 'memberdeck_pp', $test_email);
 					wp_localize_script('idcommerce-js', 'memberdeck_paypal', 'https://www.sandbox.paypal.com/cgi-bin/webscr');
-					wp_localize_script('idcommerce-js', 'memberdeck_returnurl', (!empty($settings['paypal_test_redirect']) ? $settings['paypal_test_redirect'] : array()));
 				}
 				else {
-					wp_localize_script('idcommerce-js', 'memberdeck_pp', (!empty($pp_email) ? $pp_email : array()));
+					wp_localize_script('idcommerce-js', 'memberdeck_pp', $pp_email);
 					wp_localize_script('idcommerce-js', 'memberdeck_paypal', 'https://www.paypal.com/cgi-bin/webscr');
-					wp_localize_script('idcommerce-js', 'memberdeck_returnurl', (!empty($settings['paypal_redirect']) ? $settings['paypal_redirect'] : array()));
 				}
+				wp_localize_script('idcommerce-js', 'memberdeck_returnurl', $return_url);
 			}
 			else {
 				wp_localize_script( 'idcommerce-js', 'memberdeck_epp', '0');
@@ -993,12 +1026,21 @@ function memberdeck_styles() {
 			else {
 				wp_localize_script( 'idcommerce-js', 'memberdeck_eauthnet', '0');
 			}
+			/******* Splash *****/
+			if ($splashnet == '1') {
+				wp_localize_script( 'idcommerce-js', 'memberdeck_splashnet', '1');
+			}
+			else {
+				wp_localize_script( 'idcommerce-js', 'memberdeck_splashnet', '0');
+			}
+			/***************/
 			if ($elw == '1') {
 				$lemonway_3ds_enabled = (isset($settings['lemonway_3ds_enabled']) ? $settings['lemonway_3ds_enabled'] : '');
 				wp_localize_script( 'idcommerce-js' , 'idc_lemonway_method', ((!empty($lemonway_3ds_enabled) && $lemonway_3ds_enabled == "1") ? '3dsecure' : 'non3dsecure'));
 				wp_localize_script( 'idcommerce-js' , 'idc_elw', '1');
 			} else {
 				wp_localize_script( 'idcommerce-js' , 'idc_elw', '0');
+				wp_localize_script( 'idcommerce-js' , 'idc_lemonway_method', '');
 			}
 			wp_localize_script('idcommerce-js', 'memberdeck_testmode', $test);
 		}
@@ -1019,7 +1061,7 @@ function memberdeck_styles() {
 	wp_localize_script( 'idcommerce-js', 'memberdeck_siteurl', $homeurl );
 	wp_localize_script( 'idcommerce-js', 'memberdeck_pluginsurl', $pluginsurl );
 	wp_localize_script( 'idcommerce-js', 'memberdeck_durl', $durl);
-	wp_localize_script( 'idcommerce-js', 'idc_localization_strings', idc_localization_strings());
+	wp_localize_script( 'idcommerce-js', 'idc_localization_strings', apply_filters('idc_localization_strings', ''));
 	wp_localize_script( 'idcommerce-js' , 'permalink_prefix', $prefix);
 	wp_localize_script( 'idcommerce-js' , 'is_idc_free',  (is_idc_free() ? '1' : '0'));
 	wp_enqueue_style('idcommerce');
@@ -1063,22 +1105,20 @@ function idc_send_renewal_notifications() {
 				// Getting level for checking if it's enabled for renewal
 				$level = ID_Member_Level::get_level($order->level_id);
 				if (!empty($level) && $level->enable_renewals) {
-					if ($level->product_status == 'active') {
-						$tz = get_option('timezone_string');
-						if (empty($tz)) {
-							$tz = 'UTC';
-						}
-						date_default_timezone_set($tz);
-						$reminder_days = array(30, 14, 7, 1);
-						$e_date = $order->e_date;
-						$current_date = time();
-						$days_left = idmember_e_date_format($e_date);
-						// if the left number of days to expiry lies in the reminder (interval) days array, then send an email
-						if (in_array($days_left, $reminder_days)) {
-							$renewal = new ID_Member_Renewal($order->user_id);
-							$response = $renewal->send_notification_for_renewal($days_left, $order->level_id, $level);
-							unset($renewal);
-						}
+					$tz = get_option('timezone_string');
+					if (empty($tz)) {
+						$tz = 'UTC';
+					}
+					date_default_timezone_set($tz);
+					$reminder_days = array(30, 14, 7, 1);
+					$e_date = $order->e_date;
+					$current_date = time();
+					$days_left = idmember_e_date_format($e_date);
+					// if the left number of days to expiry lies in the reminder (interval) days array, then send an email
+					if (in_array($days_left, $reminder_days)) {
+						$renewal = new ID_Member_Renewal($order->user_id);
+						$response = $renewal->send_notification_for_renewal($days_left, $order->level_id, $level);
+						unset($renewal);
 					}
 				}
 			}
@@ -1117,10 +1157,6 @@ function memberdeck_webhook_listener() {
 	                $payment_complete = true;
 	                //fwrite($log, 'complete'."\n");
 	            }
-	            else if ($key == 'txn_type' && strtoupper($val) == 'SUBSCR_SIGNUP') {
-	            	$payment_complete = true;
-	            	$trial = true;
-	            }
 	            else if ($key == 'txn_type' && strtoupper($val) == 'SUBSCR_CANCEL') {
 	            	$subscription_cancel = true;
 	            }
@@ -1133,176 +1169,259 @@ function memberdeck_webhook_listener() {
 	        }
 	        if ($payment_complete) {
 	        	// lets get our vars
-	        	$guest_checkout = (isset($_GET['guest_checkout']) ? $_GET['guest_checkout'] : 0);
 	            $fname = $vars['first_name'];
 	            $lname = $vars['last_name'];
-	            $price = (!$trial ? $vars['mc_gross'] : $vars['mc_amount1']);
+	            $price = $vars['mc_gross'];
 	            $payer_email = $vars['payer_email'];
 	            $email = $_GET['email'];
 	            $product_id = $vars['item_number'];
 	            $ipn_id = $vars['ipn_track_id'];
-	            $txn_id = (!$trial ? $vars['txn_id'] : $vars['subscr_id']);
+	            $txn_id = $vars['txn_id'];
 	       		$txn_check = ID_Member_Order::check_order_exists($txn_id);
+	       		if (empty($txn_check)) {
+		            $level = ID_Member_Level::get_level($product_id);
+		            if ($level->limit_term == '1') {
+						$term_length = $level->term_length;
+					}
+		            if (isset($vars['txn_type']) && $vars['txn_type'] == 'subscr_payment') {
+		            	$recurring = true;
+		            	$sub_id = $vars['subscr_id'];
+		            	//fwrite($log, 'sub id: '.$sub_id."\n");
+		            }
+		            else {
+		            	$recurring = false;
+		            }
 
-	       		if (!empty($txn_check)) {
-	       			return;
-	       		}
+		            $access_levels = array(absint($product_id));
+		            //fwrite($log, 'id: '.$product_id."\n");
+		            //fwrite($log, $email."\n");
+		            // now we need to see if this user exists in our db
+		            $member = new ID_Member();
+		            $check_user = $member->check_user($email);
+		            //fwrite($log, serialize($check_user)."\n");
+		            if (!empty($check_user)) {
+		        		//fwrite($log, 'user exists'."\n");
+		            	// now we know this user exists we need to see if he is a current ID_Member
+		            	$user_id = $check_user->ID;
+		            	$match_user = $member->match_user($user_id);
+		            	if (!isset($match_user)) {
+		            		//fwrite($log, 'first purchase'."\n");
+		            		// not a member, this is their first purchase
+		            		if ($recurring == true) {
+		            			$recurring_type = $level->recurring_type;
+		            			if ($recurring_type == 'weekly') {
+		            				// weekly
+		            				$exp = strtotime('+1 week');
+		            			}
+		            			else if ($recurring_type == 'monthly') {
+		            				// monthly
+		            				$exp = strtotime('+1 month');
+		            			}
+		            			else {
+		            				// annually
+		            				$exp = strtotime('+1 years');
+									
+		            			}
+		            			$e_date = date('Y-m-d h:i:s', $exp);
+		            			$data = array('ipn_id' => $ipn_id, 'sub_id' => $sub_id);
+		            		}
+		            		else if ($level->e_date == 'lifetime') {
+		            			$e_date = null;
+		            		}
+		            		else {
+		            			$exp = strtotime('+1 years');
+								$e_date = date('Y-m-d h:i:s', $exp);
+		            			$data = array('ipn_id' => $ipn_id);
+		            		}
+		            		
 
-	       		$customer = array(
-	       			'product_id' => $product_id,
-	       			'first_name' => $fname,
-	       			'last_name' => $lname,
-	       			'email' => $email
-	       		);
-	       		
-	       		$new_data = array('ipn_id' => $ipn_id);
+		            		$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => $data);
+							$new = ID_Member::add_user($user);
+							$order = new ID_Member_Order(null, $user_id, $product_id, null, $txn_id, $sub_id, 'active', $e_date, $price);
+							$new_order = $order->add_order();
+		            	}
 
-	            $level = ID_Member_Level::get_level($product_id);
-	            if ($level->limit_term == '1') {
-					$term_length = $level->term_length;
-				}
-	            if (isset($vars['txn_type']) && ($vars['txn_type'] == 'subscr_payment' || $vars['txn_type'] == 'subscr_signup')) {
-	            	$recurring = true;
-	            	$sub_id = $vars['subscr_id'];
-	            	$new_data['sub_id'] = $sub_id;
-	            	//fwrite($log, 'sub id: '.$sub_id."\n");
-	            }
-	            else {
-	            	$recurring = false;
-	            	$sub_id = '';
-	            }
-	            $e_date = ID_Member_Order::set_e_date($level);
-	            $access_levels = array(absint($product_id));
-	            //fwrite($log, 'id: '.$product_id."\n");
-	            //fwrite($log, $email."\n");
-	            // now we need to see if this user exists in our db
-	            $member = new ID_Member();
-	            $check_user = $member->check_user($email);
-	            //fwrite($log, serialize($check_user)."\n");
-	            if (!empty($check_user)) {
-	        		//fwrite($log, 'user exists'."\n");
-	            	// now we know this user exists we need to see if he is a current ID_Member
-	            	$user_id = $check_user->ID;
-	            	$match_user = $member->match_user($user_id);
-
-	            	if (empty($match_user)) {
-	            		//fwrite($log, 'first purchase'."\n");
-	            		// not a member, this is their first purchase
-	            		$data = $new_data;
-	            		$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => $data);
-						$new = ID_Member::add_user($user);
-						$order = new ID_Member_Order(null, $user_id, $product_id, null, $txn_id, $sub_id, 'active', $e_date, $price);
-						$new_order = $order->add_order();
-	            	}
-
-	            	else {
-	            		//fwrite($log, 'more than one purchase'."\n");
-	            		// is a member, we need to merge new product access with old product access
-	            		if (isset($match_user->access_level)) {
-	            			$levels = maybe_unserialize($match_user->access_level);
-	            			if (!empty($levels)) {
-		            			foreach ($levels as $lvl) {
-									$access_levels[] = absint($lvl);
+		            	else {
+		            		//fwrite($log, 'more than one purchase'."\n");
+		            		// is a member, we need to merge new product access with old product access
+		            		if (isset($match_user->access_level)) {
+		            			$levels = maybe_unserialize($match_user->access_level);
+		            			if (!empty($levels)) {
+			            			foreach ($levels as $key['val']) {
+										$access_levels[] = absint($key['val']);
+									}
 								}
-							}
-	            		}
+		            		}
 
-	            		if (isset($match_user->data)) {
-	            			$data = unserialize($match_user->data);
-	            			if (!is_array($data)) {
-	            				$data = array($data);
-	            			}
-	            			$data[] = $new_data;
-	            		}
-	            		else {
-	            			$data = $new_data;
-	            		}
+		            		if (isset($match_user->data)) {
+		            			$data = unserialize($match_user->data);
+		            			if (!is_array($data)) {
+		            				$data = array($data);
+		            			}
+		            			if ($recurring == true) {
+		            				$recurring_type = $level->recurring_type;
+			            			if ($recurring_type == 'weekly') {
+			            				// weekly
+			            				$exp = strtotime('+1 week');
+			            			}
+			            			else if ($recurring_type == 'monthly') {
+			            				// monthly
+			            				$exp = strtotime('+1 month');
+			            			}
+			            			else {
+			            				// annually
+			            				$exp = strtotime('+1 years');
+										
+			            			}
+			            			$e_date = date('Y-m-d h:i:s', $exp);
+		            				$data[] = array('ipn_id' => $ipn_id, 'sub_id' => $sub_id);
+		            			}
+		            			else if ($level->level_type == 'lifetime') {
+		            				$e_date = null;
+		            			}
+		            			else {
+		            				$exp = strtotime('+1 years');
+									$e_date = date('Y-m-d h:i:s', $exp);
+		            				$data[] = array('ipn_id' => $ipn_id);
+		            			}
+		            		}
+		            		else {
+		            			if ($recurring == true) {
+		            				$recurring_type = $level->recurring_type;
+			            			if ($recurring_type == 'weekly') {
+			            				// weekly
+			            				$exp = strtotime('+1 week');
+			            			}
+			            			else if ($recurring_type == 'monthly') {
+			            				// monthly
+			            				$exp = strtotime('+1 month');
+			            			}
+			            			else {
+			            				// annually
+			            				$exp = strtotime('+1 years');
+										
+			            			}
+			            			$e_date = date('Y-m-d h:i:s', $exp);
+		            				$data[] = array('ipn_id' => $ipn_id, 'sub_id' => $sub_id);
+		            			}
+		            			else if ($level->e_date == 'lifetime') {
+		            				$e_date = null;
+		            			}
+		            			else {
+		            				$exp = strtotime('+1 years');
+									$e_date = date('Y-m-d h:i:s', $exp);
+		            				$data[] = array('ipn_id' => $ipn_id);
+		            			}
+		            		}
 
-						$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => $data);
-						$new = ID_Member::update_user($user);
-						//fwrite($log, $user_id);
-						$order = new ID_Member_Order(null, $user_id, $product_id, null, $txn_id, $sub_id, 'active', $e_date, $price);
-						$new_order = $order->add_order();
-	            	}
-	            }
-	            else {
-	            	$data = $new_data;
-	            	//fwrite($log, 'new user: '."\n");
-	            	// user does not exist, we must create them
-	            	if (!$guest_checkout) {
-	            		// gen random pw they can change later
-	            		$pw = idmember_pw_gen();
-	            		// gen our user input
+							$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => $data);
+							$new = ID_Member::update_user($user);
+							//fwrite($log, $user_id);
+							$order = new ID_Member_Order(null, $user_id, $product_id, null, $txn_id, $sub_id, 'active', $e_date, $price);
+							$new_order = $order->add_order();
+		            	}
+		            }
+		            else {
+		            	//fwrite($log, 'new user: '."\n");
+		            	// user does not exist, we must create them
+		            	// gen random pw they can change later
+		            	$pw = idmember_pw_gen();
+		            	// gen our user input
 		            	$userdata = array('user_pass' => $pw,
 		            		'first_name' => $fname,
 		            		'last_name' => $lname,
 		            		'user_login' => $email,
 		            		'user_email' => $email,
 		            		'display_name' => $fname);
-	            		//fwrite($log, serialize($userdata));
-	            		// insert user into WP db and return user id
-	            		$user_id = wp_insert_user($userdata);
-	            		//fwrite($log, $user_id."\n");
-	            		// now add user to our member table
-	            		$reg_key = md5($email.time());
-	            		$user = array('user_id' => $user_id, 'level' => $access_levels, 'reg_key' => $reg_key, 'data' => $data);
-						$new = ID_Member::add_ipn_user($user);
+		            	//fwrite($log, serialize($userdata));
+		            	// insert user into WP db and return user id
+		            	$user_id = wp_insert_user($userdata);
+		            	//fwrite($log, $user_id."\n");
+		            	// now add user to our member table
+		            	if ($recurring == true) {
+		            		$recurring_type = $level->recurring_type;
+		            		//fwrite($log, 'recurring type: '.$recurring_type."\n");
+	            			if ($recurring_type == 'weekly') {
+	            				// weekly
+	            				$exp = strtotime('+1 week');
+	            			}
+	            			else if ($recurring_type == 'monthly') {
+	            				// monthly
+	            				$exp = strtotime('+1 month');
+	            			}
+	            			else {
+	            				// annually
+	            				$exp = strtotime('+1 years');
+								
+	            			}
+	            			$e_date = date('Y-m-d h:i:s', $exp);
+							$data = array('ipn_id' => $ipn_id, 'sub_id' => $sub_id);
+		            	}
+		            	else if ($level->level_type == 'lifetime') {
+	            			$e_date = null;
+	            			$sub_id = null;
+	            		}
+		            	else {
+		            		$exp = strtotime('+1 years');
+							$e_date = date('Y-m-d h:i:s', $exp);
+		            		$data = array('ipn_id' => $ipn_id);
+		            		$sub_id = null;
+		            	}
+		            	//fwrite($log, 'exp: '.$exp."\n");
+		            	$reg_key = md5($email.time());
+		            	$user = array('user_id' => $user_id, 'level' => $access_levels, 'reg_key' => $reg_key, 'data' => $data);
+						$new = ID_Member::add_paypal_user($user);
 						//fwrite($log, $new."\n");
-					}
-					$order = new ID_Member_Order(null, (isset($user_id) ? $user_id : null), $product_id, null, $txn_id, $sub_id, 'active', $e_date, $price);
-					$new_order = $order->add_order();
-					if ($guest_checkout) {
+						$order = new ID_Member_Order(null, $user_id, $product_id, null, $txn_id, $sub_id, 'active', $e_date, $price);
+						$new_order = $order->add_order();
 						//fwrite($log, 'order added: '.$new_order."\n");
-						do_action('idc_guest_checkout_order', $new_order, $customer);
-					}
-					else {
 						do_action('idmember_registration_email', $user_id, $reg_key, $new_order);
-					}
-	            }
-	            // we need to pass any extra post fields set during checkout
-	            if (isset($_GET)) {
-	            	$fields = $_GET;
-	            }
-	            else {
-	            	$fields = array();
-	            }
-	            if (empty($reg_key)) {
-	            	$reg_key = '';
-	            }
-	            //
-	            if ($crowdfunding) {
-					if (isset($fields['mdid_checkout'])) {
-						$mdid_checkout = $fields['mdid_checkout'];
-					}
-					if (isset($fields['project_id'])) {
-						$project_id = $fields['project_id'];
-					}
-					if (isset($fields['project_level'])) {
-						$proj_level = $fields['project_level'];
-					}
-					if (!empty($project_id) && !empty($proj_level)) {
-						$order = new ID_Member_Order($new_order);
-						$order_info = $order->get_order();
-						$created_at = $order_info->order_date;
-						$pay_id = mdid_insert_payinfo($fname, $lname, $email, $project_id, $txn_id, $proj_level, $price, $status, $created_at);
-						if (isset($pay_id)) {
-							if ($recurring) {
-								$start = strtotime("now");
-								$mdid_id = mdid_insert_order('', $pay_id, $start, $txn_id);
+		            }
+		            // we need to pass any extra post fields set during checkout
+		            if (isset($_GET)) {
+		            	$fields = $_GET;
+		            }
+		            else {
+		            	$fields = array();
+		            }
+		            if (empty($reg_key)) {
+		            	$reg_key = '';
+		            }
+		            //
+		            if ($crowdfunding) {
+		            	if (isset($fields['memberdeck_notify']) && $fields['memberdeck_notify'] == 'pp') {
+							if (isset($fields['mdid_checkout'])) {
+								$mdid_checkout = $fields['mdid_checkout'];
 							}
-							else {
-								$mdid_id = mdid_insert_order('', $pay_id, $new_order, null);
+							if (isset($fields['project_id'])) {
+								$project_id = $fields['project_id'];
 							}
-							do_action('id_payment_success', $pay_id);
+							if (isset($fields['project_level'])) {
+								$proj_level = $fields['project_level'];
+							}
+							$order = new ID_Member_Order($new_order);
+							$order_info = $order->get_order();
+							$created_at = $order_info->order_date;
+							$pay_id = mdid_insert_payinfo($fname, $lname, $email, $project_id, $txn_id, $proj_level, $price, $status, $created_at);
+							if (isset($pay_id)) {
+								if ($recurring) {
+									$start = strtotime("now");
+									$mdid_id = mdid_insert_order('', $pay_id, $start, $txn_id);
+								}
+								else {
+									$mdid_id = mdid_insert_order('', $pay_id, $new_order, null);
+								}
+								do_action('id_payment_success', $pay_id);
+							}
 						}
 					}
-				}
-	            do_action('memberdeck_payment_success', (isset($user_id) ? $user_id : $user_id), $new_order, $reg_key, $fields, 'paypal');
-	            if ($recurring) {
-	           		do_action('memberdeck_recurring_success', 'paypal', $user_id, $new_order, (isset($term_length) ? $term_length : null));
-	           	}
-	           	do_action('idmember_receipt', (isset($user_id) ? $user_id : ''), $price, $product_id, 'paypal', $new_order, $fields);
-	            //fwrite($log, 'user added');
+		            do_action('memberdeck_payment_success', $user_id, $new_order, $reg_key, $fields, 'paypal');
+		            if ($recurring) {
+		           		do_action('memberdeck_recurring_success', 'paypal', $user_id, $new_order, (isset($term_length) ? $term_length : null));
+		           	}
+		           	do_action('idmember_receipt', $user_id, $price, $product_id, 'paypal', $new_order, $fields);
+		            //fwrite($log, 'user added');
+		        }
 	        }
 	        else if (isset($subscription_cancel) && $subscription_cancel == true) {
 	        	$sub_id = $vars['subscr_id'];
@@ -1338,7 +1457,7 @@ function memberdeck_webhook_listener() {
 	        			}
 	        			if (isset($record_id)) {
 	        				$cut_data = $data[$record_id];
-	        				$cut_data['cancel_date'] = date('Y-m-d H:i:s');
+	        				$cut_data['cancel_date'] = date('Y-m-d h:i:s');
 	        				unset($data[$record_id]);
 	        				$data[] = $cut_data;
 	        			}
@@ -1378,7 +1497,7 @@ function memberdeck_webhook_listener() {
 	        			}
 	        			if (isset($record_id)) {
 	        				$cut_data = $data[$record_id];
-	        				$cut_data['dispute_date'] = date('Y-m-d H:i:s');
+	        				$cut_data['dispute_date'] = date('Y-m-d h:i:s');
 	        				unset($data[$record_id]);
 	        				$data[] = $cut_data;
 	        			}
@@ -1399,7 +1518,7 @@ function memberdeck_webhook_listener() {
 	        			unset($level_array[$key]);
 	        			$cancel = ID_Member_Order::cancel_subscription($transaction->id);
 	        			$data = unserialize($match_user->data);
-	        			$data['dispute_date'] = date('Y-m-d H:i:s');
+	        			$data['dispute_date'] = date('Y-m-d h:i:s');
 	        			$data = serialize($data);
 	        			$access_level = serialize($level_array);
 	        			$user = array('user_id' => $user_id, 'level' => $access_level, 'data' => $data);
@@ -1419,13 +1538,13 @@ function memberdeck_webhook_listener() {
 			//fwrite($log, $object->type."\n");
 			if ($object->type == 'invoice.payment_succeeded') {
 				$data = $object->data;
-				$is_trial = ((isset($data->object->lines->data[0]->plan->trial_period_days) && $data->object->lines->data[0]->plan->trial_period_days > 0) ? true : false);
-				$txn_id = ($is_trial ? $data->object->number : $data->object->charge);
+				$txn_id = $data->object->charge;
 				//fwrite($log, $txn_id."\n");
 				$customer = $data->object->customer;
 				//fwrite($log, $customer."\n");
 				$plan = $data->object->lines->data[0]->plan->id;
 				$start = $data->object->lines->data[0]->period->start;
+				$is_trial = ((isset($data->object->lines->data[0]->plan->trial_period_days) && $data->object->lines->data[0]->plan->trial_period_days > 0) ? true : false);
 				//fwrite($log, 'start: '.$start."\n");
 				//fwrite($log, $plan."\n");
 				if (isset($customer)) {
@@ -1434,7 +1553,7 @@ function memberdeck_webhook_listener() {
 					$userdata = get_userdata($user_id);
 					$user_email = $userdata->user_email;
 					//fwrite($log, $user_id."\n");
-					if (!empty($user_id)) {
+					if (isset($user_id)) {
 						// If it's a subscrition, and txn_id is null
 						if (empty($txn_id) && $is_trial) {
 							$ignore_txn_check = true;
@@ -1460,13 +1579,13 @@ function memberdeck_webhook_listener() {
 								// annually
 								$exp = strtotime('+1 years');
 							}
-							$e_date = date('Y-m-d H:i:s', $exp);
+							$e_date = date('Y-m-d h:i:s', $exp);
 							//fwrite($log, $e_date);
 							if ($level->limit_term == 1) {
 								$term_length = $level->term_length;
 							}
 							$paykey = md5($user_email.time());
-							$order = new ID_Member_Order(null, $user_id, $product_id, null, $txn_id, $plan, 'active', $e_date, ($data->object->amount_paid / 100));
+							$order = new ID_Member_Order(null, $user_id, $product_id, null, $txn_id, $plan, 'active', $e_date, $level->level_price);
 							$new_order = $order->add_order();
 							//fwrite($log, 'new order: '.$new_order."\n");
 							// we need to pass any extra post fields set during checkout
@@ -1478,7 +1597,6 @@ function memberdeck_webhook_listener() {
 							}
 							//
 							if ($crowdfunding) {
-								#devnote only post cf order if it's matched
 								$user_meta = get_user_meta($user_id);
 								$fname = $user_meta['first_name'][0]; // var
 								$lname = $user_meta['last_name'][0]; // var
@@ -1524,7 +1642,7 @@ function memberdeck_webhook_listener() {
 							//
 							do_action('memberdeck_payment_success', $user_id, $new_order, $paykey, $fields, 'stripe');
 							do_action('memberdeck_recurring_success', 'stripe', $user_id, $new_order, (isset($term_length) ? $term_length : null));
-							do_action('memberdeck_stripe_success', $user_id, $user_email);
+							do_action('memberdeck_stripe_success', $user_id, $email);
 							do_action('idmember_receipt', $user_id, $level->level_price, $product_id, 'stripe', $new_order, $fields);
 						}
 					}
@@ -1584,15 +1702,6 @@ function memberdeck_webhook_listener() {
 					$lname = $custom->user_lname;
 					$email = $custom->user_email;
 					$txn_id = $order->transaction->id;
-					$guest_checkout = $custom->guest_checkout;
-
-					$customer = array(
-		       			'product_id' => $product_id,
-		       			'first_name' => $fname,
-		       			'last_name' => $lname,
-		       			'email' => $email
-		       		);
-
 					// Payment is successful
 					// Checking if the level is recurring
 					if (isset($order->button->subscription) && !empty($order->button->subscription)) {
@@ -1607,7 +1716,6 @@ function memberdeck_webhook_listener() {
 
 		            // Getting level details, will be used later
 					$level = ID_Member_Level::get_level($custom->product_id);
-			        $e_date = ID_Member_Order::set_e_date($level);
 
 		            // now we need to see if this user exists in our db
 		            $member = new ID_Member();
@@ -1623,6 +1731,33 @@ function memberdeck_webhook_listener() {
 			            	if (!isset($match_user)) {
 			            		//fwrite($log, 'first purchase'."\n");
 			            		// not a member, this is their first purchase
+			            		if ($recurring == true) {
+			            			$recurring_type = $level->recurring_type;
+			            			if ($recurring_type == 'weekly') {
+			            				// weekly
+			            				$exp = strtotime('+1 week');
+			            			}
+			            			else if ($recurring_type == 'monthly') {
+			            				// monthly
+			            				$exp = strtotime('+1 month');
+			            			}
+			            			else {
+			            				// annually
+			            				$exp = strtotime('+1 years');
+										
+			            			}
+			            			$e_date = date('Y-m-d h:i:s', $exp);
+			            			// $data = array('ipn_id' => $ipn_id, 'sub_id' => $sub_id);
+			            		}
+			            		else if ($level->e_date == 'lifetime') {
+			            			$e_date = null;
+			            		}
+			            		else {
+			            			$exp = strtotime('+1 years');
+									$e_date = date('Y-m-d h:i:s', $exp);
+			            			// $data = array('ipn_id' => $ipn_id);
+			            		}
+			            		
 
 			            		$user = array('user_id' => $user_id, 'level' => $access_levels/*, 'data' => $data*/);
 								$new = ID_Member::add_user($user);
@@ -1647,6 +1782,61 @@ function memberdeck_webhook_listener() {
 			            			if (!is_array($data)) {
 			            				$data = array($data);
 			            			}
+			            			if ($recurring == true) {
+			            				$recurring_type = $level->recurring_type;
+				            			if ($recurring_type == 'weekly') {
+				            				// weekly
+				            				$exp = strtotime('+1 week');
+				            			}
+				            			else if ($recurring_type == 'monthly') {
+				            				// monthly
+				            				$exp = strtotime('+1 month');
+				            			}
+				            			else {
+				            				// annually
+				            				$exp = strtotime('+1 years');
+											
+				            			}
+				            			$e_date = date('Y-m-d h:i:s', $exp);
+			            				//#LATER $data[] = array('ipn_id' => $ipn_id, 'sub_id' => $sub_id);
+			            			}
+			            			else if ($level->level_type == 'lifetime') {
+			            				$e_date = null;
+			            			}
+			            			else {
+			            				$exp = strtotime('+1 years');
+										$e_date = date('Y-m-d h:i:s', $exp);
+			            				//#LATER $data[] = array('ipn_id' => $ipn_id);
+			            			}
+			            		}
+			            		// There is no data in data field of memberdeck_members, so we will add new data only
+			            		else {
+			            			if ($recurring == true) {
+			            				$recurring_type = $level->recurring_type;
+				            			if ($recurring_type == 'weekly') {
+				            				// weekly
+				            				$exp = strtotime('+1 week');
+				            			}
+				            			else if ($recurring_type == 'monthly') {
+				            				// monthly
+				            				$exp = strtotime('+1 month');
+				            			}
+				            			else {
+				            				// annually
+				            				$exp = strtotime('+1 years');
+											
+				            			}
+				            			$e_date = date('Y-m-d h:i:s', $exp);
+			            				//#LATER $data[] = array('ipn_id' => $ipn_id, 'sub_id' => $sub_id);
+			            			}
+			            			else if ($level->e_date == 'lifetime') {
+			            				$e_date = null;
+			            			}
+			            			else {
+			            				$exp = strtotime('+1 years');
+										$e_date = date('Y-m-d h:i:s', $exp);
+			            				//#LATER $data[] = array('ipn_id' => $ipn_id);
+			            			}
 			            		}
 
 								$user = array('user_id' => $user_id, 'level' => $access_levels/*, 'data' => $data*/);
@@ -1656,39 +1846,60 @@ function memberdeck_webhook_listener() {
 								$new_order = $order->add_order();
 			            	}
 			            }
+			            // User/Member doesn't exists so a new member will be added
 			            else {
 			            	//fwrite($log, 'new user: '."\n");
-			            	if (!$guest_checkout) {
-				            	// user does not exist, we must create them
-				            	// gen random pw they can change later
-				            	$pw = idmember_pw_gen();
-				            	// gen our user input
-				            	$userdata = array('user_pass' => $pw,
-				            		'first_name' => $fname,
-				            		'last_name' => $lname,
-				            		'user_login' => $email,
-				            		'user_email' => $email,
-				            		'display_name' => $fname);
-				            	//fwrite($log, serialize($userdata));
-				            	// insert user into WP db and return user id
-				            	$user_id = wp_insert_user($userdata);
-				            	//fwrite($log, $user_id."\n");
-				            	// now add user to our member table
-				            	//fwrite($log, 'exp: '.$exp."\n");
-				            	$reg_key = md5($email.time());
-				            	$user = array('user_id' => $user_id, 'level' => $access_levels, 'reg_key' => $reg_key/*, 'data' => $data*/);
-								$new = ID_Member::add_ipn_user($user);
-								//fwrite($log, $new."\n");
-							}
-							$order = new ID_Member_Order(null, (isset($user_id) ? $user_id : null), $product_id, null, $txn_id, $sub_id, 'active', $e_date, $price);
+			            	// user does not exist, we must create them
+			            	// gen random pw they can change later
+			            	$pw = idmember_pw_gen();
+			            	// gen our user input
+			            	$userdata = array('user_pass' => $pw,
+			            		'first_name' => $fname,
+			            		'last_name' => $lname,
+			            		'user_login' => $email,
+			            		'user_email' => $email,
+			            		'display_name' => $fname);
+			            	//fwrite($log, serialize($userdata));
+			            	// insert user into WP db and return user id
+			            	$user_id = wp_insert_user($userdata);
+			            	//fwrite($log, $user_id."\n");
+			            	// now add user to our member table
+			            	if ($recurring == true) {
+			            		$recurring_type = $level->recurring_type;
+			            		//fwrite($log, 'recurring type: '.$recurring_type."\n");
+		            			if ($recurring_type == 'weekly') {
+		            				// weekly
+		            				$exp = strtotime('+1 week');
+		            			}
+		            			else if ($recurring_type == 'monthly') {
+		            				// monthly
+		            				$exp = strtotime('+1 month');
+		            			}
+		            			else {
+		            				// annually
+		            				$exp = strtotime('+1 years');
+									
+		            			}
+		            			$e_date = date('Y-m-d h:i:s', $exp);
+								//#LATER $data = array('ipn_id' => $ipn_id, 'sub_id' => $sub_id);
+			            	}
+			            	else if ($level->e_date == 'lifetime') {
+		            			$e_date = null;
+		            		}
+			            	else {
+			            		$exp = strtotime('+1 years');
+								$e_date = date('Y-m-d h:i:s', $exp);
+			            		//#LATER $data = array('ipn_id' => $ipn_id);
+			            	}
+			            	//fwrite($log, 'exp: '.$exp."\n");
+			            	$reg_key = md5($email.time());
+			            	$user = array('user_id' => $user_id, 'level' => $access_levels, 'reg_key' => $reg_key/*, 'data' => $data*/);
+							$new = ID_Member::add_paypal_user($user);
+							//fwrite($log, $new."\n");
+							$order = new ID_Member_Order(null, $user_id, $product_id, null, $txn_id, $sub_id, 'active', $e_date, $price);
 							$new_order = $order->add_order();
 							//fwrite($log, 'order added: '.$new_order."\n");
-							if ($guest_checkout) {
-								do_action('idc_guest_checkout_order', $new_order, $customer);
-							}
-							else {
-								do_action('idmember_registration_email', $user_id, $reg_key, $new_order);
-							}
+							do_action('idmember_registration_email', $user_id, $reg_key, $new_order);
 			            }
 
 			            // we need to pass any extra post fields set during checkout
@@ -1710,27 +1921,25 @@ function memberdeck_webhook_listener() {
 							if (isset($fields['project_level'])) {
 								$proj_level = $fields['project_level'];
 							}
-							if (!empty($project_id) && !empty($proj_level)) {
-								$order = new ID_Member_Order($new_order);
-								$order_info = $order->get_order();
-								$created_at = $order_info->order_date;
-								$pay_id = mdid_insert_payinfo($fname, $lname, $email, $project_id, $txn_id, $proj_level, $price, $status, $created_at);
-								if (isset($pay_id)) {
-									if ($recurring) {
-										$start = strtotime("now");
-										$mdid_id = mdid_insert_order('', $pay_id, $start, $sub_id);
-									}
-									else {
-										$mdid_id = mdid_insert_order('', $pay_id, $new_order, null);
-									}
-									do_action('id_payment_success', $pay_id);
+							$order = new ID_Member_Order($new_order);
+							$order_info = $order->get_order();
+							$created_at = $order_info->order_date;
+							$pay_id = mdid_insert_payinfo($fname, $lname, $email, $project_id, $txn_id, $proj_level, $price, $status, $created_at);
+							if (isset($pay_id)) {
+								if ($recurring) {
+									$start = strtotime("now");
+									$mdid_id = mdid_insert_order('', $pay_id, $start, $sub_id);
 								}
+								else {
+									$mdid_id = mdid_insert_order('', $pay_id, $new_order, null);
+								}
+								do_action('id_payment_success', $pay_id);
 							}
 						}
 						// Calling the actions for hooks
-						do_action('memberdeck_payment_success', (isset($user_id) ? $user_id : null), $new_order, $reg_key, $fields, 'coinbase');
+						do_action('memberdeck_payment_success', $user_id, $new_order, $reg_key, $fields, 'coinbase');
 						if ($recurring) {
-							do_action('memberdeck_recurring_success', 'coinbase', (isset($user_id) ? $user_id : null), $new_order, (isset($term_length) ? $term_length : null));
+							do_action('memberdeck_recurring_success', 'coinbase', $user_id, $new_order, (isset($term_length) ? $term_length : null));
 						}
 					}
 				}
@@ -1741,7 +1950,6 @@ function memberdeck_webhook_listener() {
 			$preauth = false;
 			$payment_complete = false;
 			$recurring = false;
-			$new_data = array();
 			$preauth_check = (isset($_GET['preauth_check']) ? $_GET['preauth_check'] : '');
 			$vars = array();
 			$plain_content = @file_get_contents('php://input');
@@ -1799,7 +2007,6 @@ function memberdeck_webhook_listener() {
             		$recurring = true;
 					$preauth = true;
 					$sub_id = $vars['preapproval_key'];
-					$new_data['sub_id'] = $sub_id;
             	}
             }
             else if (strtoupper($vars['status']) == "CANCELED" && strtoupper($vars['transaction_type']) == "ADAPTIVE PAYMENT PREAPPROVAL") {
@@ -1820,18 +2027,7 @@ function memberdeck_webhook_listener() {
 	            $email = $_GET['user_email'];
 	            $product_id = $_GET['product_id'];
 	            $pay_key = (isset($vars['preapproval_key']) ? $vars['preapproval_key'] : '');
-	            $new_data['pay_key'] = $pay_key;
-	            $guest_checkout = (isset($_GET['guest_checkout']) ? $_GET['guest_checkout'] : 0);
-
-	            $customer = array(
-	       			'product_id' => $product_id,
-	       			'first_name' => $fname,
-	       			'last_name' => $lname,
-	       			'email' => $email
-	       		);
-
 	            $level = ID_Member_Level::get_level($product_id);
-	            $e_date = ID_Member_Order::set_e_date($level);
 	            if ($level->limit_term == '1') {
 					$term_length = $level->term_length;
 				}
@@ -1891,13 +2087,40 @@ function memberdeck_webhook_listener() {
 	            	$match_user = $ID_Member->match_user($user_id);
 	            	if (!isset($match_user)) {
 	            		//fwrite($log, 'first purchase'."\n");
-	            		// not a member, this is their first purchase	            		
+	            		// not a member, this is their first purchase
+	            		if ($recurring == true) {
+	            			$recurring_type = $level->recurring_type;
+	            			if ($recurring_type == 'weekly') {
+	            				// weekly
+	            				$exp = strtotime('+1 week');
+	            			}
+	            			else if ($recurring_type == 'monthly') {
+	            				// monthly
+	            				$exp = strtotime('+1 month');
+	            			}
+	            			else {
+	            				// annually
+	            				$exp = strtotime('+1 years');
+								
+	            			}
+	            			$e_date = date('Y-m-d h:i:s', $exp);
+	            			$data = array('pay_key' => $pay_key, 'sub_id' => $sub_id);
+	            		}
+	            		else if ($level->e_date == 'lifetime') {
+	            			$e_date = null;
+	            		}
+	            		else {
+	            			$exp = strtotime('+1 years');
+							$e_date = date('Y-m-d h:i:s', $exp);
+	            			$data = array('pay_key' => $pay_key);
+	            		}
+	            		
 	            		// does this ever happen?
 	            		// not a duplicate because user is in wp_users but not in memberdeck table
-	            		if (!$guest_checkout) {
-	            			$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => $data);
-							$new = ID_Member::add_user($user);
-						}
+	            		$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => $data);
+						$new = ID_Member::add_user($user);
+						$order = new ID_Member_Order(null, $user_id, $product_id, null, $txn_id, (isset($sub_id) ? $sub_id : ''), 'active', $e_date, $price);
+						$new_order = $order->add_order();
 	            	}
 
 	            	else {
@@ -1917,28 +2140,77 @@ function memberdeck_webhook_listener() {
 	            			if (!is_array($data)) {
 	            				$data = array($data);
 	            			}
-	            			$data[] = $new_data;
+	            			if ($recurring == true) {
+	            				$recurring_type = $level->recurring_type;
+		            			if ($recurring_type == 'weekly') {
+		            				// weekly
+		            				$exp = strtotime('+1 week');
+		            			}
+		            			else if ($recurring_type == 'monthly') {
+		            				// monthly
+		            				$exp = strtotime('+1 month');
+		            			}
+		            			else {
+		            				// annually
+		            				$exp = strtotime('+1 years');
+									
+		            			}
+		            			$e_date = date('Y-m-d h:i:s', $exp);
+	            				$data[] = array('pay_key' => $pay_key, 'sub_id' => $sub_id);
+	            			}
+	            			else if ($level->level_type == 'lifetime') {
+	            				$e_date = null;
+	            			}
+	            			else {
+	            				$exp = strtotime('+1 years');
+								$e_date = date('Y-m-d h:i:s', $exp);
+	            				$data[] = array('pay_key' => $pay_key);
+	            			}
 	            		}
-	            		if (!$guest_checkout) {
-							$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => $data);
-							$new = ID_Member::update_user($user);
-							//fwrite($log, $user_id);
-						}
+	            		else {
+	            			if ($recurring == true) {
+	            				$recurring_type = $level->recurring_type;
+		            			if ($recurring_type == 'weekly') {
+		            				// weekly
+		            				$exp = strtotime('+1 week');
+		            			}
+		            			else if ($recurring_type == 'monthly') {
+		            				// monthly
+		            				$exp = strtotime('+1 month');
+		            			}
+		            			else {
+		            				// annually
+		            				$exp = strtotime('+1 years');
+									
+		            			}
+		            			$e_date = date('Y-m-d h:i:s', $exp);
+	            				$data[] = array('pay_key' => $pay_key, 'sub_id' => $sub_id);
+	            			}
+	            			else if ($level->e_date == 'lifetime') {
+	            				$e_date = null;
+	            			}
+	            			else {
+	            				$exp = strtotime('+1 years');
+								$e_date = date('Y-m-d h:i:s', $exp);
+	            				$data[] = array('pay_key' => $pay_key);
+	            			}
+	            		}
+						$user = array('user_id' => $user_id, 'level' => $access_levels, 'data' => $data);
+						$new = ID_Member::update_user($user);
+						//fwrite($log, $user_id);
+						$order = new ID_Member_Order(null, $user_id, $product_id, null, $txn_id, (isset($sub_id) ? $sub_id : ''), 'active', $e_date, $price);
+						$new_order = $order->add_order();
 	            	}
-	            	$order = new ID_Member_Order(null, (isset($user_id) ? $user_id : null), $product_id, null, $txn_id, (isset($sub_id) ? $sub_id : ''), 'active', $e_date, $price);
-					$new_order = $order->add_order();
-					if ($guest_checkout) {
-						do_action('idc_guest_checkout_order', $new_order, $customer);
-					}
+
 	            	// Adding pre-auth order
 	            	if (isset($preauth) && $preauth == true) {
 						//echo 'sending a preorder';
 						$preorder_entry = ID_Member_Order::add_preorder($new_order, $pay_key, 'pp-adaptive');
-						do_action('memberdeck_preauth_success', (isset($user_id) ? $user_id : null), $new_order, $txn_id, $fields, 'pp-adaptive');
-						do_action('memberdeck_preauth_receipt', (isset($user_id) ? $user_id : null), $price, $product_id, 'pp-adaptive', $new_order);
+						do_action('memberdeck_preauth_receipt', $user_id, $price, $product_id, 'pp-adaptive', $new_order);
+						do_action('memberdeck_preauth_success', $user_id, $new_order, $txn_id, $fields, 'pp-adaptive');
 					}
 					else {
-	            		do_action('idmember_receipt', (isset($user_id) ? $user_id : null), $price, $product_id, 'pp-adaptive', $new_order, $fields);
+	            		do_action('idmember_receipt', $user_id, $price, $product_id, 'pp-adaptive', $new_order, $fields);
 	            	}
 	            }
 	            else if ($store_new) {
@@ -1946,44 +2218,65 @@ function memberdeck_webhook_listener() {
 	            	//fwrite($log, 'new user: '."\n");
 	            	// user does not exist, we must create them
 	            	// gen random pw they can change later
-	            	if (!$guest_checkout) {
-		            	$pw = idmember_pw_gen();
-		            	// gen our user input
-		            	$userdata = array('user_pass' => $pw,
-		            		'first_name' => $fname,
-		            		'last_name' => $lname,
-		            		'user_login' => $email,
-		            		'user_email' => $email,
-		            		'display_name' => $fname);
-		            	//fwrite($log, serialize($userdata));
-		            	// insert user into WP db and return user id
-		            	$user_id = wp_insert_user($userdata);
-		            	//fwrite($log, $user_id."\n");
-		            	// now add user to our member table
-		            	//fwrite($log, 'exp: '.$exp."\n");
-		            	$reg_key = md5($email.time());
-		            	$user = array('user_id' => $user_id, 'level' => $access_levels, 'reg_key' => $reg_key, 'data' => $data);
-						$new = ID_Member::add_ipn_user($user);
-						//fwrite($log, $new."\n");
-					}
-					$order = new ID_Member_Order(null, (isset($user_id) ? $user_id : null), $product_id, null, $txn_id, (isset($sub_id) ? $sub_id : ''), 'active', $e_date, $price);
+	            	$pw = idmember_pw_gen();
+	            	// gen our user input
+	            	$userdata = array('user_pass' => $pw,
+	            		'first_name' => $fname,
+	            		'last_name' => $lname,
+	            		'user_login' => $email,
+	            		'user_email' => $email,
+	            		'display_name' => $fname);
+	            	//fwrite($log, serialize($userdata));
+	            	// insert user into WP db and return user id
+	            	$user_id = wp_insert_user($userdata);
+	            	//fwrite($log, $user_id."\n");
+	            	// now add user to our member table
+	            	if ($recurring == true) {
+	            		$recurring_type = $level->recurring_type;
+	            		//fwrite($log, 'recurring type: '.$recurring_type."\n");
+            			if ($recurring_type == 'weekly') {
+            				// weekly
+            				$exp = strtotime('+1 week');
+            			}
+            			else if ($recurring_type == 'monthly') {
+            				// monthly
+            				$exp = strtotime('+1 month');
+            			}
+            			else {
+            				// annually
+            				$exp = strtotime('+1 years');
+							
+            			}
+            			$e_date = date('Y-m-d h:i:s', $exp);
+						$data = array('pay_key' => $pay_key, 'sub_id' => $sub_id);
+	            	}
+	            	else if ($level->e_date == 'lifetime') {
+            			$e_date = null;
+            		}
+	            	else {
+	            		$exp = strtotime('+1 years');
+						$e_date = date('Y-m-d h:i:s', $exp);
+	            		$data = array('pay_key' => $pay_key);
+	            	}
+	            	//fwrite($log, 'exp: '.$exp."\n");
+	            	$reg_key = md5($email.time());
+	            	$user = array('user_id' => $user_id, 'level' => $access_levels, 'reg_key' => $reg_key, 'data' => $data);
+					$new = ID_Member::add_paypal_user($user);
+					//fwrite($log, $new."\n");
+					$order = new ID_Member_Order(null, $user_id, $product_id, null, $txn_id, (isset($sub_id) ? $sub_id : ''), 'active', $e_date, $price);
 					$new_order = $order->add_order();
 					//fwrite($log, 'order added: '.$new_order."\n");
-					if ($guest_checkout) {
-						do_action('idc_guest_checkout_order', $new_order, $customer);
-					}
-					else {
-						do_action('idmember_registration_email', $user_id, $reg_key, $new_order);
-					}
+					
 					// Adding pre-auth order
 	            	if (isset($preauth) && $preauth == true) {
 	            		$preorder_entry = ID_Member_Order::add_preorder($new_order, $pay_key, 'pp-adaptive');
-						do_action('memberdeck_preauth_success', (isset($user_id) ? $user_id : null), $new_order, $txn_id, $fields, 'pp-adaptive');
-						do_action('memberdeck_preauth_receipt', (isset($user_id) ? $user_id : null), $price, $product_id, 'pp-adaptive', $new_order);
+						do_action('memberdeck_preauth_receipt', $user_id, $price, $product_id, 'pp-adaptive', $new_order);
+						do_action('memberdeck_preauth_success', $user_id, $new_order, $txn_id, $fields, 'pp-adaptive');
 	            	}
 	            	else {
-	            		do_action('idmember_receipt', (isset($user_id) ? $user_id : null), $price, $product_id, 'pp-adaptive', $new_order, $fields);
+	            		do_action('idmember_receipt', $user_id, $price, $product_id, 'pp-adaptive', $new_order, $fields);
 	            	}
+					do_action('idmember_registration_email', $user_id, $reg_key, $new_order);
 	            }
 	            if ($store_new) {
 		            if (empty($reg_key)) {
@@ -2003,7 +2296,7 @@ function memberdeck_webhook_listener() {
 						}
 	            		// fwrite($log, 'product_id: '.$product_id."\n");
 	            		// fwrite($log, 'proj_level: '.$proj_level."\n");
-						if (!empty($project_id) && !empty($proj_level)) {
+						if (isset($project_id) && !empty($project_id) && isset($proj_level)) {
 							$order = new ID_Member_Order($new_order);
 							$order_info = $order->get_order();
 							$created_at = $order_info->order_date;
@@ -2027,10 +2320,10 @@ function memberdeck_webhook_listener() {
 						}
 					}	
 		            //
-		            do_action('memberdeck_payment_success', (isset($user_id) ? $user_id : null), $new_order, $reg_key, $fields, 'pp-adaptive');
+		            do_action('memberdeck_payment_success', $user_id, $new_order, $reg_key, $fields, 'pp-adaptive');
 		            if ($recurring) {
 		            	if ($preauth) {
-		            		$new_sub = new ID_Member_Subscription(null, (isset($user_id) ? $user_id : null), $level->id, $sub_id, 'paypal');
+		            		$new_sub = new ID_Member_Subscription(null, $user_id, $level->id, $sub_id, 'paypal');
 							$filed_sub = $new_sub->add_subscription();
 							$item = new stdClass();
 			            	$item->product_id = $product_id;
@@ -2044,7 +2337,7 @@ function memberdeck_webhook_listener() {
 						}
 						else {
 							update_option('term_length', $level->term_length);
-			            	do_action('memberdeck_recurring_success', 'adaptive', (isset($user_id) ? $user_id : null), $new_order, (isset($level->term_length) ? $level->term_length : null));
+			            	do_action('memberdeck_recurring_success', 'adaptive', $user_id, $new_order, (isset($level->term_length) ? $level->term_length : null));
 			            }
 		            }
 		            //fwrite($log, 'user added');
@@ -2088,7 +2381,7 @@ function memberdeck_webhook_listener() {
 	        			}
 	        			if (isset($record_id)) {
 	        				$cut_data = $data[$record_id];
-	        				$cut_data['cancel_date'] = date('Y-m-d H:i:s');
+	        				$cut_data['cancel_date'] = date('Y-m-d h:i:s');
 	        				unset($data[$record_id]);
 	        				$data[] = $cut_data;
 	        			}
@@ -2128,7 +2421,7 @@ function memberdeck_webhook_listener() {
 	        			}
 	        			if (isset($record_id)) {
 	        				$cut_data = $data[$record_id];
-	        				$cut_data['dispute_date'] = date('Y-m-d H:i:s');
+	        				$cut_data['dispute_date'] = date('Y-m-d h:i:s');
 	        				unset($data[$record_id]);
 	        				$data[] = $cut_data;
 	        			}
@@ -2149,7 +2442,7 @@ function memberdeck_webhook_listener() {
 	        			unset($level_array[$key]);
 	        			$cancel = ID_Member_Order::cancel_subscription($transaction->id);
 	        			$data = unserialize($match_user->data);
-	        			$data['dispute_date'] = date('Y-m-d H:i:s');
+	        			$data['dispute_date'] = date('Y-m-d h:i:s');
 	        			$data = serialize($data);
 	        			$access_level = serialize($level_array);
 	        			$user = array('user_id' => $user_id, 'level' => $access_level, 'data' => $data);
@@ -2169,7 +2462,7 @@ add_action('init', 'memberdeck_webhook_listener');
 add_action('init', 'memberdeck_disable_others', 1);
 
 function memberdeck_disable_others() {
-	$get_array = array('payment_settings', apply_filters('idc_backer_profile_slug', 'backer_profile'), 'edit-profile', apply_filters('idc_creator_profile_slug', 'creator_profile'), apply_filters('idc_creator_projects_slug', 'creator_projects'), 'mdid_checkout', 'idc_orders', 'key_valid', 'idc_button_submit');
+	$get_array = array('payment_settings', apply_filters('idc_backer_profile_slug', 'backer_profile'), 'edit-profile', apply_filters('idc_creator_profile_slug', 'creator_profile'), apply_filters('idc_creator_projects_slug', 'creator_projects', 'payment_settings'), 'mdid_checkout', 'idc_orders', 'key_valid', 'idc_button_submit');
 	if (isset($_GET['action']) && $_GET['action'] == 'register') {
 		if (class_exists('WPSEO_OpenGraph')) {
 			remove_action('init', 'initialize_wpseo_front');
@@ -2179,13 +2472,6 @@ function memberdeck_disable_others() {
 	}
 	else if (isset($_GET['key_valid']) && isset($_GET['email'])) {
 		remove_filter('the_content', 'wpautop');
-	}
-	else {
-		if (strpos(idf_current_url(), md_get_durl()) !== FALSE) {
-			remove_action('init', 'initialize_wpseo_front');
-			add_filter( 'jetpack_enable_open_graph', '__return_false', 99 );
-			remove_filter('the_content', 'wpautop');
-		}
 	}
 	foreach ($get_array as $get) {
 		if (isset($_GET[$get])) {

@@ -25,11 +25,11 @@
 							</div>
 							<?php do_action('idc_after_email_template_option'); ?>
 								<div class="form-row"><?php _e('Leave empty to use default template', 'memberdeck'); ?></div>
-								<div class="form-row registration_email email_text" style="display: none"><?php wp_editor((isset($template_array['registration_email']) ? $template_array['registration_email'] : ''), "registration_email_text", array('textarea_rows' => 20)); ?></div>
-								<div class="form-row welcome_email email_text" style="display: none"><?php wp_editor((isset($template_array['welcome_email']) ? $template_array['welcome_email'] : ''), "welcome_email_text", array('textarea_rows' => 20)); ?></div>
-								<div class="form-row purchase_receipt email_text" style="display: none"><?php wp_editor((isset($template_array['purchase_receipt']) ? $template_array['purchase_receipt'] : ''), "purchase_receipt_text", array('textarea_rows' => 20)); ?></div>
-								<div class="form-row preorder_receipt email_text" style="display: none"><?php wp_editor((isset($template_array['preorder_receipt']) ? $template_array['preorder_receipt'] : ''), "preorder_receipt_text", array('textarea_rows' => 20)); ?></div>
-								<div class="form-row product_renewal_email email_text" style="display: none"><?php wp_editor((isset($template_array['product_renewal_email']) ? $template_array['product_renewal_email'] : ''), "product_renewal_email_text", array('textarea_rows' => 20)); ?></div>
+								<div class="form-row registration_email email_text" style="display: none"><?php wp_editor((isset($template_array['registration_email']) ? stripslashes($template_array['registration_email']) : ''), "registration_email_text", array('textarea_rows' => 20)); ?></div>
+								<div class="form-row welcome_email email_text" style="display: none"><?php wp_editor((isset($template_array['welcome_email']) ? stripslashes($template_array['welcome_email']) : ''), "welcome_email_text", array('textarea_rows' => 20)); ?></div>
+								<div class="form-row purchase_receipt email_text" style="display: none"><?php wp_editor((isset($template_array['purchase_receipt']) ? stripslashes($template_array['purchase_receipt']) : ''), "purchase_receipt_text", array('textarea_rows' => 20)); ?></div>
+								<div class="form-row preorder_receipt email_text" style="display: none"><?php wp_editor((isset($template_array['preorder_receipt']) ? stripslashes($template_array['preorder_receipt']) : ''), "preorder_receipt_text", array('textarea_rows' => 20)); ?></div>
+								<div class="form-row product_renewal_email email_text" style="display: none"><?php wp_editor((isset($template_array['product_renewal_email']) ? stripslashes($template_array['product_renewal_email']) : ''), "product_renewal_email_text", array('textarea_rows' => 20)); ?></div>
 								<?php do_action('idc_email_template'); ?>
 							<div class="form-row">
 								<button name="edit_template" id="edit_template" class="button button-primary"><?php _e('Save Template', 'memberdeck'); ?></button><?php

@@ -8,7 +8,7 @@
  * @package Secupay
  * @copyright 2013 Secucard Projekt KG
  */
-define('SECUPAY_HOST', apply_filters('id_secupay_host', 'api.secupay.ag'));
+define('SECUPAY_HOST', 'api.secupay.ag');
 //define('SECUPAY_HOST', 'api-dist.secupay-ag.de');
 define('SECUPAY_URL', 'https://'.SECUPAY_HOST.'/payment/');
 define('SECUPAY_PATH', '/payment/');

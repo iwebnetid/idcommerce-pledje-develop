@@ -15,8 +15,7 @@ Class ID_Shipping_Info {
 		add_action('md_purchase_extrafields','idc_shipping_info_template');
 		add_action('memberdeck_payment_success', 'idc_save_shipping_info', 100, 5);
 		add_action('memberdeck_preauth_success', 'idc_save_shipping_info', 100, 5);
-		add_action('id_payment_success', 'idc_schedule_idcf_shipping_update', 100, 1);
-		add_action('idc_update_idcf_shipping', 'idc_update_idcf_shipping');
+		add_action('id_payment_success', 'idc_update_idcf_shipping', 100, 1);
 	}
 }
 

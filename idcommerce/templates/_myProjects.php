@@ -1,3 +1,7 @@
+<div class="memberdeck ignitiondeck">
+	<?php include_once IDC_PATH.'templates/_mdProfileTabs.php'; ?>
+	
+	<ul class="md-box-wrapper full-width cf" id="idc-downloads">
 <li class="myprojects column-3 author-<?php echo $post->post_author; ?>" data-author="<?php echo $post->post_author; ?>">
 	<div class="myproject_wrapper">
       <div class="project-item">
@@ -17,7 +21,10 @@
               </div>
          </div>
          <div title="Project Name" class="project-name"><?php echo get_the_title($post_id); ?></div>
-         <div class="project-funded"><?php echo $project_raised; ?> <?php _e('Raised', 'memberdeck'); ?></div>
+         <div class="project-funded"><?php echo $project_raised; ?> <?php _e('Raised', 'ignitiondeck'); ?></div>
       </div>
     </div>
 </li>
+	</ul>
+
+</div>

@@ -73,6 +73,8 @@ function idc_orders_list($content) {
 		$order_id = $_GET['view_receipt'];
 		$order = new ID_Member_Order($order_id);
 		$last_order = $order->get_order();
+		
+		
 		if ($last_order->user_id == $current_user->ID) {
 			$i = 0;
 			foreach ($levels as $level) {
@@ -94,21 +96,6 @@ function idc_orders_list($content) {
 	$content = ob_get_contents();
 	ob_end_clean();
 	return $content;
-}
-
-add_filter('idc_backer_userdata', 'idc_guest_backer_check', 10, 2);
-
-function idc_guest_backer_check($user_data, $order_id) {
-	if (empty($user_data->ID)) {
-		$guest_data = idc_get_order_meta($order_id, 'guest_data');
-		if (!empty($guest_data)) {
-			$user_data = (object) array(
-				'ID' => null,
-				'display_name' => $guest_data['first_name'] .' '. $guest_data['last_name'],
-			);
-		}
-	}
-	return $user_data;
 }
 
 /**
@@ -154,7 +141,7 @@ function memberdeck_profile_form($content) {
 		if (isset($first_data) && $first_data) {
 			$efd = (isset($settings['efd']) ? $settings['efd'] : 0);
 		}
-		if ($es) {
+		if ($es == 1) {
 			$customer_id = customer_id();
 			if (!empty($customer_id)) {
 				$has_subscription = ID_Member_Subscription::has_subscription($user_id);
@@ -163,13 +150,13 @@ function memberdeck_profile_form($content) {
 				}
 			}
 		}
-		else if (isset($efd) && $efd) {
+		else if (isset($efd) && $efd == 1) {
 			$fd_card_details = fd_customer_id();
 			if (!empty($fd_card_details)) {
 				$customer_id = $fd_card_details['fd_token'];
 			}
 		}
-		else if ($eauthnet) {
+		else if ($eauthnet == 1) {
 			$authnet_customer_ids = authnet_customer_id();
 			if (!empty($authnet_customer_ids)) {
 				$authorizenet_payment_profile_id = $authnet_customer_ids['authorizenet_payment_profile_id'];
@@ -189,7 +176,7 @@ function memberdeck_profile_form($content) {
 
 	$general = get_option('md_receipt_settings');
 	if ($show_subscriptions) {
-		if ($eauthnet) {
+		if ($eauthnet == 1) {
 			$plans = array();
 
 			// Requiring the library of Authorize.Net
@@ -226,7 +213,7 @@ function memberdeck_profile_form($content) {
 			}
 		}
 		else {
-			$sk = idc_stripe_sk();
+			$sk = stripe_sk();
 			if (!class_exists('Stripe')) {
 				require_once 'lib/stripe-php-4.2.0/init.php';
 			}
@@ -263,8 +250,9 @@ function memberdeck_profile_form($content) {
 	}
 
 	$instant_checkout = instant_checkout();
+	// $show_icc = get_user_meta($user_id, 'customer_id', true);
 	$show_icc = allow_instant_checkout();
-
+	//$instant_checkout = get_user_meta($user_id, 'instant_checkout', true);
 	// Getting the shortcode button lightbox image
 	if (isset($_POST['edit-profile-submit'])) {
 		$idc_avatar = sanitize_text_field($_POST['idc_avatar']);
@@ -359,7 +347,6 @@ function idc_filter_avatar($args, $id_or_email) {
 		}
 	}
 	if (!empty($id_or_email) && !is_int($id_or_email)) {
-		// we have an email
 		$user = get_user_by('email', $id_or_email);
 		if (!empty($user)) {
 			$id_or_email = $user->ID;
@@ -642,22 +629,25 @@ function memberdeck_login_redirect($redirect_to, $request, $user) {
 	// If user is an error object, redirect to dashboard with error code
 	if (is_wp_error($user)) {
 		// Getting the permalink structure
-		$error_code = $user->get_error_code();
-		// Check if code is empty, if yes, then it's a logout call, we don't need to touch it
-		if (!empty($error_code)) {
-			$prefix = idf_get_querystring_prefix();
-			if (stripos($redirect_to, '?') !== false) {
-				$prefix = '&';
+		if (function_exists('idf_get_querystring_prefix')) {
+			$error_code = $user->get_error_code();
+			// Check if code is empty, if yes, then it's a logout call, we don't need to touch it
+			if (!empty($error_code)) {
+				$error_code = $user->get_error_code();
+				$prefix = idf_get_querystring_prefix();
+				if (stripos($redirect_to, '?') !== false) {
+					$prefix = '&';
+				}
+				if (stripos($redirect_to, 'login_failure') !== false) {
+					parse_str($redirect_to, $string);
+					$string['error_code'] = $error_code;
+					$redirect_to = urldecode(http_build_query($string));
+				}
+				else {
+					$redirect_to = $redirect_to.$prefix.'login_failure=1&error_code='.$error_code;
+				}
+				wp_redirect($redirect_to);
 			}
-			if (stripos($redirect_to, 'login_failure') !== false) {
-				parse_str($redirect_to, $string);
-				//$string['error_code'] = $error_code;
-				$redirect_to = str_replace($string['error_code'], $error_code, $redirect_to);
-			}
-			else {
-				$redirect_to = $redirect_to.$prefix.'login_failure=1&error_code='.$error_code;
-			}
-			wp_redirect($redirect_to);
 		}
 	}
     return $redirect_to;
@@ -675,33 +665,36 @@ function idc_account_success($notification) {
 	return $notification;
 }
 
-//add_filter( 'idc_dashboard_notification', 'idc_order_lightbox' );
-add_filter( 'the_content', 'idc_order_lightbox');
+add_filter( 'idc_dashboard_notification', 'idc_order_lightbox' );
 
 function idc_order_lightbox($notification) {
-	global $global_currency;
-	if (isset($_GET['idc_product']) && isset($_GET['paykey'])) {
+	global $global_currency,$wpdb;
+	if (isset($_GET['idc_product']) && isset($_GET['paykey'])) 
+	{
+	   if(isset($_REQUEST['project_id']))
+	   {
+		  $results_did = $wpdb->get_row( "select post_id from $wpdb->postmeta where meta_key = 'ign_project_id' and meta_value =".$_REQUEST['project_id']." Order by post_id DESC" );
+		  $title = get_the_title($results_did->post_id);
+	   }
+		
 		if (class_exists('ID_Project')) {
 			$settings = ID_Project::get_id_settings();
 		}
 		$current_user = wp_get_current_user();
-		if (empty($current_user->ID)) {
-			// try guest checkout
-			$order_meta = ID_Member_Order::get_order_id_by_paykey(sanitize_text_field($_GET['paykey']));
-			if (empty($order_meta)) {
-				return $notification;
-			}
-			$current_user = (object) ID_Member_Order::get_order_meta($order_meta->order_id, 'guest_data', true);
-			$order = new ID_Member_Order($order_meta->order_id);
-			$last_order = apply_filters('idc_last_order_lightbox', $order->get_order());
+		$current_user_id	=	$current_user->ID;
+		if(isset($_REQUEST['prospect_idd']) && $_REQUEST['prospect_idd']>0){
+				$results_prospect = $wpdb->get_row( "select * from wp_pledge_prospects where ID =".trim($_REQUEST['prospect_idd']));
+				
+				$check_email = get_user_by('email', $results_prospect->email);
+				if($check_email){
+					$current_user_id		=	$check_email->ID;
+				}
 		}
-		else {
-			$order = new ID_Member_Order(null, $current_user->ID, $_GET['idc_product']);
-			$last_order = apply_filters('idc_last_order_lightbox', $order->get_last_order());
-		}
+		$order = new ID_Member_Order(null, $current_user_id, $_GET['idc_product']);
 		$level = ID_Member_Level::get_level($_GET['idc_product']);
 		$levels = array($level);
 		// Project and order details to be shown on template
+		$last_order = apply_filters('idc_last_order_lightbox', $order->get_last_order());
 
 		// First checking if this lightbox is loaded for the 1st time using transients, if not, don't load lighbox and return $notification
 		if ( isset($last_order) && false === ( $is_set = get_transient( 'idc_order_lightbox_'.$last_order->id ) ) ) {
@@ -714,7 +707,7 @@ function idc_order_lightbox($notification) {
 			// If level is recurring, the check there is a subscription for it 
 			if ($level->level_type == "recurring") {
 				// We need to check if recurring order is made and not returned by payment gateway yet
-				$subscription = new ID_Member_Subscription(null, $current_user->ID, $_GET['idc_product']);
+				$subscription = new ID_Member_Subscription(null, $current_user_id, $_GET['idc_product']);
 				$sub_details = $subscription->find_subscription();
 				if (!empty($sub_details)) {
 					// The subscription exists then it means that order hasn't yet completed, so go on
@@ -735,6 +728,7 @@ function idc_order_lightbox($notification) {
 		}
 
 		ob_start();
+		
 		include_once 'templates/_orderLightbox.php';
 		$notification .= ob_get_contents();
 		ob_end_clean();
@@ -813,14 +807,12 @@ function idc_price_format($amount, $gateway = null) {
  */
 add_filter('idc_order_price', 'idc_order_price', 10, 2);
 
-function idc_order_price($amount, $order_id, $gateway_info = null) {
+function idc_order_price($amount, $order_id) {
 	global $global_currency;
-	if (empty($gateway_info)) {
-		$gateway_info = ID_Member_Order::get_order_meta($order_id, 'gateway_info', true);
-	}
-	$amount = apply_filters('idc_price_format', $amount, (!empty($gateway_info['gateway']) ? $gateway_info['gateway'] : $global_currency));
-	if (!empty($gateway_info)) {
-		if ($gateway_info['gateway'] == 'credit') {
+	$meta = ID_Member_Order::get_order_meta($order_id, 'gateway_info', true);
+	$amount = apply_filters('idc_price_format', $amount, (!empty($meta['gateway']) ? $meta['gateway'] : $global_currency));
+	if (!empty($meta)) {
+		if ($meta['gateway'] == 'credit') {
 			$amount = 0;
 			$order = new ID_Member_Order($order_id);
 			$the_order = $order->get_order();
@@ -828,7 +820,7 @@ function idc_order_price($amount, $order_id, $gateway_info = null) {
 				$level = ID_Member_Level::get_level($the_order->level_id);
 				if (!empty($level)) {
 					$pwyw_price = ID_Member_Order::get_order_meta($the_order->id, 'pwyw_price', true);
-					if ($pwyw_price > 0 && $gateway_info['currency_code'] == "credits") {
+					if ($pwyw_price > 0 && $meta['currency_code'] == "credits") {
 						$amount = apply_filters('idc_price_format', $pwyw_price, 'credit');
 					}
 					else {
@@ -838,7 +830,7 @@ function idc_order_price($amount, $order_id, $gateway_info = null) {
 			}
 			$amount = $amount.' '. apply_filters('idc_credits_label', __('Credits', 'memberdeck'), true, $amount);
 		} else {
-			$currency_sym = ID_Member_Order::get_order_currency_sym($order_id, $gateway_info);
+			$currency_sym = ID_Member_Order::get_order_currency_sym($order_id, $meta);
 			$amount = $currency_sym.$amount;
 		}
 	}
@@ -846,7 +838,7 @@ function idc_order_price($amount, $order_id, $gateway_info = null) {
 		if ($global_currency == 'credits') {
 			$amount = $amount.' '. apply_filters('idc_credits_label', __('Credits', 'memberdeck'), true, $amount);
 		} else {
-			$currency_sym = ID_Member_Order::get_order_currency_sym($order_id, $gateway_info);
+			$currency_sym = ID_Member_Order::get_order_currency_sym($order_id, $meta);
 			$amount = $currency_sym.$amount;
 		}
 	}
@@ -1071,29 +1063,17 @@ function idc_currency_position($position, $post_id) {
 }
 add_filter('id_currency_symbol_position', 'idc_currency_position', 10, 2);
 
-function idc_text_format($text) {
-	return stripslashes($text);
-}
-
-add_filter('idc_text_format', 'idc_text_format');
-
 function idc_level_name($level_name) {
-	return apply_filters('idc_text_format', $level_name);
+	return stripslashes($level_name);
 }
 
 add_filter('idc_level_name', 'idc_level_name');
 
 function idc_company_name($coname) {
-	return apply_filters('idc_text_format', $coname);
+	return stripslashes($coname);
 }
 
 add_filter('idc_company_name', 'idc_company_name');
-
-function idc_order_level_title($title) {
-	return apply_filters('idc_text_format', $title);
-}
-
-add_filter('idc_order_level_title', 'idc_order_level_title');
 
 /**
  * Function for adding some arguments in levels dropdown in Support popup IDCF
@@ -1156,7 +1136,7 @@ function id_idc_hide_grid_protected_projects($query) {
 	// Check if the theme is IgnitionDeck
 	$theme_name = wp_get_theme();
 	$textdomain = $theme_name->get('Template');
-	$is_ignitiondeck_theme = idf_is_id_theme() && (isset($query->query['post_type']) && $query->query['post_type'] == "ignition_product" && isset($query->query['posts_per_page']) && isset($query->query['paged']));
+	$is_ignitiondeck_theme = ($textdomain == 'fivehundred' || ($theme_name->get('Author') == 'Virtuous Giant' || $theme_name->get('Author') == 'IgnitionDeck')) && (isset($query->query['post_type']) && $query->query['post_type'] == "ignition_product" && isset($query->query['posts_per_page']) && isset($query->query['paged']));
 
 	if ((is_archive() && $query->is_main_query()) || $is_ignitiondeck_theme) {
 		$protected_projects = idf_get_object('id_idc_protected_projects');
@@ -1170,9 +1150,7 @@ function id_idc_hide_grid_protected_projects($query) {
 			);
 			// $protected_projects = ID_Member::get_protected_post_metas( 'memberdeck_protected_posts' );
 			$protected_projects = get_posts( $args );
-			if (!empty($protected_projects)) {
-				do_action('idf_cache_object', 'id_idc_protected_projects', $protected_projects);
-			}
+			do_action('idf_cache_object', 'id_idc_protected_projects', $protected_projects, 60 * 60 * 12);
 		}
 
 		// Looping these posts, and see which one is not to be shown to the user
@@ -1275,44 +1253,38 @@ function idc_display_checkout_descriptions($content, $level, $level_price, $user
 	ob_start();
 	include_once 'templates/_checkoutFreeDescription.php';
 	$free_description = ob_get_contents();
-	ob_end_clean();
+	ob_clean();
 	$content .= apply_filters('idc_free_checkout_description', $free_description, $level, $level_price, (isset($user_data) ? $user_data : ''), $gateways, $general);
 	
 	ob_start();
 	include_once 'templates/_checkoutPayPalDescription.php';
 	$paypal_description = ob_get_contents();
-	ob_end_clean();
+	ob_clean();
 	$content .= apply_filters('idc_paypal_checkout_description', $paypal_description, $level, $level_price, (isset($user_data) ? $user_data : ''), $gateways, $general);
 	
 	ob_start();
 	include_once 'templates/_checkoutCreditCardDescription.php';
 	$credit_card_description = ob_get_contents();
-	ob_end_clean();
+	ob_clean();
 	$content .= apply_filters('idc_credit_card_checkout_description', $credit_card_description, $level, $level_price, (isset($user_data) ? $user_data : ''), $gateways, $general);
 	
 	ob_start();
 	include_once 'templates/_checkoutCreditsDescription.php';
 	$credits_description = ob_get_contents();
-	ob_end_clean();
+	ob_clean();
 	$content .= apply_filters('idc_credits_checkout_description', $credits_description, $level, $level_price, (isset($user_data) ? $user_data : ''), $gateways, $general);
 	
 	ob_start();
 	include_once 'templates/_checkoutCoinbaseDescription.php';
 	$coinbase_description = ob_get_contents();
-	ob_end_clean();
+	ob_clean();
 	$content .= apply_filters('idc_coinbase_checkout_description', $coinbase_description, $level, $level_price, (isset($user_data) ? $user_data : ''), $gateways, $general);
 	
 	ob_start();
 	include_once 'templates/_checkoutOfflineDescription.php';
 	$offline_description = ob_get_contents();
-	ob_end_clean();
+	ob_clean();
 	$content .= apply_filters('idc_offline_checkout_description', $offline_description, $level, $level_price, (isset($user_data) ? $user_data : ''), $gateways, $general);
-
-	ob_start();
-	include_once 'templates/_checkoutTrialDescription.php';
-	$trial_description = ob_get_contents();
-	ob_end_clean();
-	$content .= apply_filters('idc_trial_checkout_description', $trial_description, $level, $level_price, (isset($user_data) ? $user_data : ''), $gateways, $general);
 
 	return $content;
 }
@@ -1507,8 +1479,8 @@ function idc_custom_group_message_title($title) {
 		if ($level_id > 0) {
 			$level = ID_Member_Level::get_level($level_id);
 			if (!empty($level)) {
-				$level_name = idc_text_format($level->level_name);
-				$title = str_replace(' All Members', ' '.$level_name, $title);
+				$level_name = $level->level_name;
+				$title = str_replace(' Group', ' '.$level_name.' '.__('Group', 'memberdeck'), $title);
 			}
 		}
 	}
@@ -1597,7 +1569,7 @@ function idc_send_custom_product_message($user_id, $order_id, $paykey = '', $fie
 				if (!empty($level)) {
 					$custom_message = (isset($level->custom_message) ? $level->custom_message : 0);
 					if ($custom_message) {
-						$message = wpautop(stripslashes(get_option('custom_product_message_'.$level_id)));
+						$message = stripslashes(get_option('custom_product_message_'.$level_id));
 						$custom_message_status = get_option('custom_product_message_status_'.$level_id, 'draft');
 						if (!empty($message) && $custom_message_status == 'publish') {
 							// now we can get user data

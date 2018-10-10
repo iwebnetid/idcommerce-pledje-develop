@@ -15,8 +15,7 @@ class ID_Google_Ecommerce {
 		add_action('admin_menu', 'google_ecommerce_admin', 12);
 		add_action('wp_ajax_google_ecommerce_order_data', 'google_ecommerce_order_data');
 		add_action('wp_ajax_nopriv_google_ecommerce_order_data', 'google_ecommerce_order_data');
-		add_action('memberdeck_payment_success', 'google_ecommerce_pay_triggers', 10, 5);
-		add_action('memberdeck_free_success', 'google_ecommerce_free_triggers', 10, 2);
+		add_action('memberdeck_payment_success', 'google_ecommerce_js_triggers', 10, 5);
 	}
 	
 }

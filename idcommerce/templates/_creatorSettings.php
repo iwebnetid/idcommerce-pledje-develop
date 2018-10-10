@@ -1,6 +1,7 @@
 <div class="memberdeck">
-	<form method="POST" action="" id="payment-settings" class="payment-settings">
-		<?php include_once IDC_PATH.'templates/_mdProfileTabs.php'; ?>
+<?php include_once IDC_PATH.'templates/_mdProfileTabs.php'; ?>
+	<form method="POST" action="?payment_settings=<?php echo (isset($current_user->ID) ? $current_user->ID : ''); ?>" id="payment-settings" class="payment-settings">
+		
 		<ul class="md-box-wrapper full-width cf">
 			<?php if (isset($epp_fes) && $epp_fes) { ?>
 			<li class="md-box half">
@@ -16,6 +17,23 @@
 					</div>
 				</div>
 			</li>
+			
+			<?php do_action('md_payment_settings_sidebar'); ?>
+			<!--
+			<li class="md-box half">
+				<div class="md-profile paypal-settings">
+					<?php
+					echo apply_filters('md_payment_settings_error', ''); ?>
+					<!-- echo $output; 
+					<h3><?php _e('Paypal', 'memberdeck'); ?></h3>
+					<p> <?php _e('Add your paypal email id ', 'memberdeck'); ?></p>
+					<div class="form-row">
+						<label for="paypal_email"><?php _e('Paypal Email', 'memberdeck'); ?></label>
+						<input type="email" id="" name="paypal_email" class="required" value="<?php echo $paypal_email; ?>">
+					</div>
+				</div>
+			</li>-->
+			
 			<?php } ?>
 			
 			<?php if ($enable_mailchimp) { ?>
@@ -43,6 +61,7 @@
 				</div>
 			</li>
 			<?php } ?>
+			<?php //echo do_action('md_profile_extrafields'); ?>
 			<?php do_action('md_payment_settings_extrafields', $payment_settings); ?>
 			<?php do_action('md_payment_settings_sidebar'); ?>
 			<li class="md-box">

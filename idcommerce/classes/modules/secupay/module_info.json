@@ -1,9 +1,8 @@
 {
   "title":"Secupay",
-  "short_desc":"Integrates with Secupay for prepay, debit, and credit card processing",
+  "short_desc":"Integrates with Secupay for basic credit card processing",
   "doclink":"",
-  "status":"live",
+  "status":"test",
   "type":"module",
-  "requires": "idc",
-  "tags": "commerce gateways"
+  "requires": "idc"
 }

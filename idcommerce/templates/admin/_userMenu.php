@@ -16,14 +16,12 @@
 		<div id="user-list">
 			<div class="tablenav top">
 				<div id="stat-list">
-					<select name="level-select" id="level-selector" class="user-stat level-selector" data-selected="<?php echo (isset($_GET['level']) ? (int) ($_GET['level']) : ''); ?>">
-						<option value="0" <?php echo (empty($_GET['level']) ? 'selected="selected"' : ''); ?>><?php _e('All Members', 'memberdeck').': '.$total_users; ?></option>
-						<?php foreach ($levels as $level) {
-							if ($level->count > 0) {
-								echo '<option value="'.$level->id.'">'.idc_text_format($level->level_name).'</option>';
-							} 
-						} ?>
-					</select>
+					<div class="user-stat"><a class="<?php echo (isset($_GET['level']) ? '' : 'active'); ?>" href="admin.php?page=<?php echo (isset($section) ? $section : ''); ?>"><div class="user-title" style="display: inline-block;"><?php _e('All Members', 'memberdeck'); ?></div><div class="user-number" style="display: inline-block;"><?php echo $total_users; ?></div></a></div>
+				<?php foreach ($levels as $level) {
+					if ($level->count > 0) { ?> 
+						<div class="user-stat"><?php echo '<a class="'.(isset($_GET['level']) && $_GET['level'] == $level->id ? 'active' : '').'" href="admin.php?'.(isset($query_string) ? $query_string : '').'&amp;level='.urlencode($level->id).'"><div class="user-title" style="display: inline-block;">'.stripslashes($level->level_name).'</div><div class="user-number" style="display: inline-block;">'.$level->count.'</div></a>'; ?></div>
+				<?php }
+				} ?>
 				</div>
 				<div class="tablenav-pages"><span class="displaying-num"><?php echo $pages; ?> <?php _e('items', 'memberdeck'); ?></span>
 					<?php if (isset($page) && $page > 1) { ?>
@@ -39,7 +37,7 @@
 			</div>
 			<?php if (!is_idc_free()) { ?>
 			<div class="mail_option">
-				<button type="button" class="button button-large" onclick="location.href='<?php echo $mail_url; ?>'"><?php echo apply_filters('idc_send_group_message_title', __('Send Message to All Members', 'memberdeck')); ?></button>
+				<button type="button" class="button button-large" onclick="location.href='<?php echo $mail_url; ?>'"><?php echo apply_filters('idc_send_group_message_title', __('Send Message to Group', 'memberdeck')); ?></button>
 			</div>
 			<?php } ?>
 			<table id="memberdeck-users" class="wp-list-table widefat fixed pages" cellspacing="0">
@@ -48,51 +46,39 @@
 						<th scope="col" id="cb" class="manage-column column-cb check-column">
 							&nbsp;<!--<input id="cb-select-all-1" type="checkbox"/>-->
 						</th>
-						<th scope="col" id="user_id" class="manage-column sortable desc xsmall">
+						<th scope="col" id="name" class="manage-column sortable desc">
 							<a href="#">
-								<span><?php _e('ID', 'memberdeck'); ?></span>
+								<span><?php _e('Name', 'memberdeck'); ?></span>
 								<!--<span class="sorting-indicator"></span>-->
 							</a>
 						</th>
-						<th scope="col" id="name" class="manage-column sortable desc medium">
-							<a href="#">
-								<span><?php _e('Username', 'memberdeck'); ?></span>
-								<!--<span class="sorting-indicator"></span>-->
-							</a>
-						</th>
-						<th scope="col" id="name" class="manage-column sortable desc medium">
-							<a href="#">
-								<span><?php _e('Display Name', 'memberdeck'); ?></span>
-								<!--<span class="sorting-indicator"></span>-->
-							</a>
-						</th>
-						<th scope="col" id="edate" class="manage-column sortable desc medium">
+						<th scope="col" id="edate" class="manage-column sortable desc">
 							<a href="#">
 								<span><?php _e('User Email', 'memberdeck'); ?></span>
 								<!--<span class="sorting-indicator"></span>-->
 							</a>
 						</th>
-						<th scope="col" id="levels" class="manage-column sortable desc large">
+						<th scope="col" id="levels" class="manage-column sortable desc">
 							<a href="#">
 								<span><?php _e('Current Products', 'memberdeck'); ?></span>
 								<!--<span class="sorting-indicator"></span>-->
 							</a>
 						</th>
-						<th scope="col" id="orders" class="manage-column sortable desc small">
+						<th scope="col" id="orders" class="manage-column sortable desc">
 							<a href="#">
 								<span><?php echo apply_filters('idc_orders_label_replace', __('Orders', 'memberdeck'), true); ?></span>
 								<!--<span class="sorting-indicator"></span>-->
 							</a>
 						</th>
 						<?php if (!is_idc_free()) { ?>
-						<th scope="col" id="credits" class="manage-column sortable desc small">
+						<th scope="col" id="credits" class="manage-column sortable desc">
 							<a href="#">
 								<span><?php echo apply_filters('idc_credits_label_replace', __('Credits', 'memberdeck'), true); ?></span>
 								<!--<span class="sorting-indicator"></span>-->
 							</a>
 						</th>
 						<?php } ?>
-						<th scope="col" id="rdate" class="manage-column sortable desc large">
+						<th scope="col" id="rdate" class="manage-column sortable desc">
 							<a href="#">
 								<span><?php _e('Registration Date', 'memberdeck'); ?></span>
 								<!--<span class="sorting-indicator"></span>-->
@@ -105,21 +91,9 @@
 						<th scope="col" class="manage-column column-cb check-column">
 							&nbsp;<!--<input id="cb-select-all-1" type="checkbox"/>-->
 						</th>
-						<th scope="col" id="user_id" class="manage-column sortable desc">
-							<a href="#">
-								<span><?php _e('ID', 'memberdeck'); ?></span>
-								<!--<span class="sorting-indicator"></span>-->
-							</a>
-						</th>
 						<th scope="col" class="manage-column sortable desc">
 							<a href="#">
-								<span><?php _e('Username', 'memberdeck'); ?></span>
-								<!--<span class="sorting-indicator"></span>-->
-							</a>
-						</th>
-						<th scope="col" id="name" class="manage-column sortable desc medium">
-							<a href="#">
-								<span><?php _e('Display Name', 'memberdeck'); ?></span>
+								<span><?php _e('Name', 'memberdeck'); ?></span>
 								<!--<span class="sorting-indicator"></span>-->
 							</a>
 						</th>
@@ -167,7 +141,7 @@
 								if (isset($users[$i]->access_level)) {
 									$access_levels = unserialize($users[$i]->access_level);
 									if (is_array($access_levels) && in_array($level->id, $access_levels)) {
-										$name[] = idc_text_format($level->level_name);
+										$name[] = stripslashes($level->level_name);
 										$lid[] = $level->id;
 									}
 								}
@@ -181,13 +155,11 @@
 							if (isset($users[$i]->ID)) {
 								$order_count = count(ID_Member_Order::get_orders_by_user($users[$i]->ID));
 							}
-							if (!empty($users[$i]) && !isset($level_filter)) {
-								echo '<tr id="user-'.(!empty($users[$i]->ID) ? $users[$i]->ID : '').'" class="user-'.(!empty($users[$i]->ID) ? $users[$i]->ID : '').' hentry '.$alt.'">';
+							if (isset($users[$i]) && !isset($level_filter)) {
+								echo '<tr id="user-'.$users[$i]->ID.'" class="user-'.$users[$i]->ID.' hentry '.$alt.'">';
 								echo '<th scope="row" class="check-column">&nbsp;<!--<input id="cb-select-'.($i+1).'" type="checkbox" name="post[]" value="'.($i+1).'"/>--></th>';
-								echo '<td class="user-id"><a href="#">'.(!empty($users[$i]->ID) ? $users[$i]->ID : '-').'</a></td>';
-								echo '<td class="username"><a href="#">'.(!empty($users[$i]->user_login) ? $users[$i]->user_login : __('None Found', 'memberdeck')).'</a></td>';
-								echo '<td class="display-name">'.(!empty($users[$i]->display_name) ? $users[$i]->display_name : __('None Found', 'memberdeck')).'</td>';
-								echo '<td class="user-email"><a href="#">'.(!empty($users[$i]->user_email) ? $users[$i]->user_email : __('None Found', 'memberdeck')).'</a></td>';
+								echo '<td class="name-title"><a href="#">'.$users[$i]->user_login.'</a></td>';
+								echo '<td class="user-email"><a href="#">'.(isset($users[$i]->user_email) ? $users[$i]->user_email : '').'</a></td>';
 								echo '<td class="current-levels">';
 								$j = 1;
 								foreach ($name as $title) 
@@ -201,9 +173,7 @@
 								if (!is_idc_free()) {
 									echo '<td class="current-credits">'.(isset($users[$i]->credits) ? $users[$i]->credits : '0').'</td>';
 								}
-								$date = new DateTime($users[$i]->r_date, new DateTimeZone('UTC'));
-								$date->setTimezone($tz);
-								echo '<td class="reg-date">'.$date->format('Y-m-d H:i:s').'</td>';
+								echo '<td class="reg-date">'.(isset($users[$i]->r_date) ? $users[$i]->r_date : '').'</td>';
 								echo '</tr>';
 								//$i++;
 							}
@@ -213,9 +183,7 @@
 
 										echo '<tr id="user-'.$users[$i]->ID.'" class="user-'.$users[$i]->ID.' hentry '.$alt.'">';
 										echo '<th scope="row" class="check-column">&nbsp;<!--<input id="cb-select-'.($i+1).'" type="checkbox" name="post[]" value="'.($i+1).'"/>--></th>';
-										echo '<td class="user-id"><a href="#">'.(!empty($users[$i]->ID) ? $users[$i]->ID : '-').'</a></td>';
 										echo '<td class="name-title"><a href="#">'.$users[$i]->user_login.'</a></td>';
-										echo '<td class="display-name">'.(!empty($users[$i]->display_name) ? $users[$i]->display_name : __('None Found', 'memberdeck')).'</td>';
 										echo '<td class="user-email"><a href="#">'.(isset($users[$i]->user_email) ? $users[$i]->user_email : '').'</a></td>';
 										echo '<td class="current-levels">';
 										$j = 1;

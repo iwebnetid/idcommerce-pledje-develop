@@ -23,8 +23,8 @@ function id_secupay_tests_gettypes($request_data) {
 
 function id_secupay_tests_debit($request_data) {
 	$new_data = array(
-		'demo' => apply_filters('id_secupay_demo_mode', 1),
-		'payment_type' => 'prepay',
+		'demo' => 1,
+		'payment_type' => 'debit',
 		'payment_action' => 'sale',
 		'url_success' => 'http://nathanhangen.com',
 		'url_failure' => 'http://nathanhangen.com',

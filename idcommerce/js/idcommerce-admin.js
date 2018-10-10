@@ -1,5 +1,5 @@
 jQuery(document).ready(function() {
-	jQuery("#level-delete").hide();
+	jQuery("#level-delete").hide();    	
 	jQuery("#credit-delete").hide();
 	jQuery("#download-delete").hide();
 	if (jQuery('#edit-level').val() == "Choose Level") {
@@ -11,7 +11,7 @@ jQuery(document).ready(function() {
 	}
 	jQuery('.idc-attach-datepicker').datepicker({
 		defaultDate: '0000-00-00',
-		dateFormat : 'mm/dd/yy'
+		dateFormat : 'mm/dd/yy',
 	});
 
 	jQuery('.md_help_link').click(function() {
@@ -304,14 +304,13 @@ jQuery(document).ready(function() {
 			});
 		}
 	});
-	jQuery('#memberdeck-users td.username').click(function(e) {
+	jQuery('#memberdeck-users td.name-title').click(function(e) {
 		e.preventDefault();
 		var parent = jQuery(this).parent('tr').attr('id');
 		if (parent) {
 			id = parent.replace('user-', '');
 			jQuery("#user-list, .search-box").hide();
 			jQuery("#user-profile").show();
-			jQuery(document).trigger('idc_member_admin_edit', id);
 			jQuery.ajax({
 				async: false,
 				url: md_ajaxurl,
@@ -450,25 +449,9 @@ jQuery(document).ready(function() {
 			jQuery(".form-input").html('');
 			jQuery("#user-list, .search-box").show();
 			jQuery("#user-profile").hide();
-			jQuery(document).trigger('idc_member_admin_cancel');
 			e.preventDefault();
 		});
 	});
-	// #devnote find better way to framework this
-	if (jQuery('.idc_page_idc-users select.level-selector').length > 0) {
-		var selected = jQuery('.idc_page_idc-users select.level-selector').data('selected');
-		if (selected > 0) {
-			jQuery('.idc_page_idc-users select.level-selector').val(selected);
-		}
-		jQuery('.idc_page_idc-users select.level-selector').change(function(e) {
-			var val = jQuery(this).val();
-			var redirect = idfStripUrlQuery(idf_current_url) + '?page=idc-users';
-			if (val > 0) {
-				redirect = redirect + '&level=' + val;
-			}
-			location.href = redirect;
-		});
-	}
 	jQuery("#memberdeck-users td.current-levels").click(function(e) {
 		e.preventDefault();
 		var parent = jQuery(this).parent('tr').attr('id');
@@ -514,22 +497,22 @@ jQuery(document).ready(function() {
 							jQuery('.form-input tr').eq(i).append('<td/><td>none</td>');
 						}
 					}
-					jQuery.each(json.levels, function(k, level_id) {
-						console.log(k);
-						console.log(level_id);
-						console.log(json);
+					jQuery.each(json.levels, function(k, v) {
+						var lid = v;
+						var aid = k;
 						if (json.lasts[k]) {
 							var edate = json.lasts[k]['e_date'];
 							var odate = json.lasts[k]['order_date'];
 							var oid = json.lasts[k]['id'];
+
 							if (!edate || edate == undefined || edate == '') {
 								edate = 'lifetime';
 							}
 							else if (edate.indexOf('0000-00-00 00:00:00') !== -1) {
 								edate = 'lifetime';
 							}
-							jQuery(".form-input tr.level" + level_id).children('td:last-child').prev().text(odate);
-							jQuery(".form-input tr.level" + level_id).children('td:last-child').html('<a data-id="' + oid + '" class="edit-date" href="#">' + edate + '</a>');
+							jQuery(".form-input tr.level" + v).children('td:last-child').prev().text(odate);
+							jQuery(".form-input tr.level" + v).children('td:last-child').html('<a data-id="' + oid + '" class="edit-date" href="#">' + edate + '</a>');
 						}
 					});
 					jQuery('.form-input').on('click', '.edit-date', function(e) {
@@ -646,9 +629,6 @@ jQuery(document).ready(function() {
 			jQuery("#user-credits").hide();
 		});
 	});
-	jQuery('#memberdeck-users td.order_item.order_edit a').click(function(e) {
-		jQuery(document).trigger('idcOrderItemEdit', jQuery(this));
-	});
 	jQuery('#assign-checkbox .select').click(function(e) {
 		e.preventDefault();
 		jQuery('.lassign').attr('checked', 'checked');
@@ -722,12 +702,12 @@ jQuery(document).ready(function() {
 			var sibling = jQuery('[siblings="'+ sibling_name +'"]').get(0);
 
 			// Disable all CC gateway checkboxes except the siblings
-			jQuery('.cc-gateway-chkbox').not('.cc-gateway-chkbox[siblings="'+ sibling_name +'"]').removeAttr('checked').attr('disabled', 'disabled');
+		//	jQuery('.cc-gateway-chkbox').not('.cc-gateway-chkbox[siblings="'+ sibling_name +'"]').removeAttr('checked').attr('disabled', 'disabled');
 		} else {
 			var sibling = null;
 			var checkbox_id = jQuery(checkbox).attr('id');
 			// Disable all CC gateway checkboxes except the siblings
-			jQuery('.cc-gateway-chkbox').not('.cc-gateway-chkbox[id="'+ checkbox_id +'"]').removeAttr('checked').attr('disabled', 'disabled');	
+			//jQuery('.cc-gateway-chkbox').not('.cc-gateway-chkbox[id="'+ checkbox_id +'"]').removeAttr('checked').attr('disabled', 'disabled');	
 		}
 		
 		// if (jQuery('#es').attr('checked') == 'checked') {
@@ -760,17 +740,17 @@ jQuery(document).ready(function() {
 				// Check that 1st sibling is checked and that current checked box is 1st sibling
 				if (jQuery(sibling).is(':checked') && checkbox.attr('id') == jQuery(sibling).attr('id')) {
 					// Disable all CC gateway checkboxes
-					jQuery('.cc-gateway-chkbox').removeAttr('checked').attr('disabled', 'disabled');
+					//jQuery('.cc-gateway-chkbox').removeAttr('checked').attr('disabled', 'disabled');
 					// Enable all siblings, and check the checked box, on which mouse has clicked
-					jQuery('[siblings="'+ sibling_name +'"]').removeAttr('disabled');
+					//jQuery('[siblings="'+ sibling_name +'"]').removeAttr('disabled');
 					checkbox.attr('checked', 'checked');
 				}
 				// If 1st sibling is checked and current checked box is not 1st sibling
 				else if (jQuery(sibling).is(':checked')) {
 					// Disable all CC gateway checkboxes except the siblings
-					jQuery('.cc-gateway-chkbox').not('.cc-gateway-chkbox[siblings="'+ sibling_name +'"]').removeAttr('checked').attr('disabled', 'disabled');
+					//jQuery('.cc-gateway-chkbox').not('.cc-gateway-chkbox[siblings="'+ sibling_name +'"]').removeAttr('checked').attr('disabled', 'disabled');
 					// Enable all siblings as well
-					jQuery('[siblings="'+ sibling_name +'"]').removeAttr('disabled');
+					//jQuery('[siblings="'+ sibling_name +'"]').removeAttr('disabled');
 					// Check the checked box and enable it
 					checkbox.attr('checked', 'checked');
 					// Check the 1st sibling and enable it
@@ -778,7 +758,7 @@ jQuery(document).ready(function() {
 				}
 			} else {
 				// No siblings, Enable only current checkbox and mark it checked
-				jQuery('.cc-gateway-chkbox').removeAttr('checked').attr('disabled', 'disabled');
+				//jQuery('.cc-gateway-chkbox').removeAttr('checked').attr('disabled', 'disabled');
 				checkbox.attr('checked', 'checked').removeAttr('disabled');
 			}
 		} else {
@@ -792,10 +772,48 @@ jQuery(document).ready(function() {
 			if (sibling !== null && jQuery(sibling).is(':checked')) {
 
 			} else if ((sibling !== null && !jQuery(sibling).is(':checked')) || (sibling == null)) {
-				jQuery('.cc-gateway-chkbox').removeAttr('disabled');
+			//	jQuery('.cc-gateway-chkbox').removeAttr('disabled');
 			}
 		}
 	});
+
+	// jQuery('#es').change(function() {
+	// 	if (jQuery(this).attr('checked') == 'checked') {
+	// 		jQuery('#efd').removeAttr('checked').attr('disabled', 'disabled');
+	// 		jQuery('#eauthnet').removeAttr('checked').attr('disabled', 'disabled');
+	// 	}
+	// 	else {
+	// 		jQuery('#efd').removeAttr('disabled');
+	// 		jQuery('#eauthnet').removeAttr('disabled');
+	// 	}
+	// });
+
+
+	// jQuery('#efd').change(function() {
+	// 	if (jQuery(this).attr('checked') == 'checked') {
+	// 		jQuery('#es').removeAttr('checked').attr('disabled', 'disabled');
+	// 		jQuery('#esc').removeAttr('checked').attr('disabled', 'disabled');
+	// 		jQuery('#eauthnet').removeAttr('checked').attr('disabled', 'disabled');
+	// 	}
+	// 	else {
+	// 		jQuery('#es').removeAttr('disabled');
+	// 		jQuery('#esc').removeAttr('disabled');
+	// 		jQuery('#eauthnet').removeAttr('disabled');
+	// 	}
+	// });
+	
+	// jQuery('#eauthnet').change(function(e) {
+	// 	if (jQuery(this).attr('checked') == 'checked') {
+	// 		jQuery('#es').removeAttr('checked').attr('disabled', 'disabled');
+	// 		jQuery('#esc').removeAttr('checked').attr('disabled', 'disabled');
+	// 		jQuery('#efd').removeAttr('checked').attr('disabled', 'disabled');
+	// 	}
+	// 	else {
+	// 		jQuery('#es').removeAttr('disabled');
+	// 		jQuery('#esc').removeAttr('disabled');
+	// 		jQuery('#efd').removeAttr('disabled');
+	// 	}
+	// });
 	
 	// PayPal checks for selecting one paypal payment method at a time
 	jQuery('#epp').click(function(e) {
@@ -883,29 +901,20 @@ jQuery(document).ready(function() {
 		}
 	});
 
-	if (jQuery('#charge-screen').length > 0) {
-		var filter = {
-			'where': 'txn_type',
-			'value': 'preauth'
-		}
-		jQuery.ajax({
-			url: md_ajaxurl,
-			type: 'POST',
-			data: {action: 'idmember_get_levels', filter: filter},
-			success: function(res) {
-				//console.log(res);
-				if (res) {
-					json = JSON.parse(res);
-					jQuery.each(json, function(k,v) {
-						jQuery(".md-settings-container #level-list").append(jQuery("<option/>", {
-							value: this.id,
-							text: this.level_name
-						}));
-					});
-				}
+	jQuery.ajax({
+		url: md_ajaxurl,
+		type: 'POST',
+		data: {action: 'md_get_levels'},
+		success: function(res) {
+			//console.log(res);
+			if (res) {
+				json = JSON.parse(res);
+				jQuery.each(json, function(k,v) {
+					jQuery('.md-settings-container #level-list').append('<option value="' + this.id + '">' + this.level_name + '</option>');
+				});
 			}
-		});
-	}
+		}
+	});
 	jQuery('#btnProcessPreauth').click(function(e) {
 		e.preventDefault();
 		jQuery('#charge-notice').hide();
@@ -972,76 +981,4 @@ jQuery(document).ready(function() {
 		jQuery('#download-image-thumnail').attr('src', '').hide();
 		jQuery('#image-link').val('');
 	});
-
-	jQuery('.pre-order-status-link').click(function(e) {
-		var order_id = jQuery(this).data('order-id');
-		if (order_id > 0) {
-			jQuery('.preorder-status p.preorder-status-date').text(jQuery(this).data('preorder-status-date'));
-			jQuery('.preorder-status p.preorder-status-error').text(jQuery(this).data('preorder-status-error'));
-		}
-	})
 });
-jQuery(document).bind('idcOrderItemEdit', function(e, object) {
-	idcDiscardOrderEdit();
-	var editValue = jQuery(object).text();
-	var editItem = jQuery(object).parent('td');
-	jQuery(object).hide();
-	jQuery(object).after('<input type="text" data-item="' + jQuery(editItem).attr('id') + '" class="order_edit_field" value="' + editValue + '"/> <a href="#" class="order_edit_undo"><i class="fa fa-undo"></i></a> <a href="#' + editItem + '" class="order_edit_save"><i class="fa fa-save"></i></a>');
-	jQuery('#memberdeck-users td.order_item.order_edit a.order_edit_undo').click(function(e) {
-		jQuery(document).trigger('idcOrderItemUndo', editItem);
-	});
-	jQuery('#memberdeck-users td.order_item.order_edit a.order_edit_save').click(function(e) {
-		jQuery(document).trigger('idcOrderItemSave', editItem);
-	});
-	jQuery('#memberdeck-users td.order_item.order_edit input.order_edit_field').keydown(function(e) {
-		if (e.keyCode == '13') {
-			e.preventDefault();
-			jQuery(document).trigger('idcOrderItemSave', editItem);
-		}
-	});
-});
-jQuery(document).bind('idcOrderItemUndo', function(e, editItem) {
-	idcDiscardOrderEdit();
-});
-jQuery(document).bind('idcOrderItemSave', function(e, editItem) {
-	// #devnote currency code
-	var updateArgs = idcCreateOrderEditObject(editItem);
-	jQuery(document).trigger('idcOrderItemUpdate', updateArgs);
-});
-jQuery(document).bind('idcOrderItemUpdate', function(e, updateArgs) {
-	console.log(updateArgs);
-	jQuery.ajax({
-		url: md_ajaxurl,
-		type: 'POST',
-		data: {action: 'idc_order_item_update', args: updateArgs},
-		success: function(res) {
-			if (typeof(res) !== 'undefined') {
-				if (res) {
-					var currencyCode = jQuery('tr[data-id="' + updateArgs.id + '"]').data('currency-code');
-					jQuery('#' + updateArgs.column + '-' + updateArgs.id + ' a').text(currencyCode + updateArgs.value);
-					idcDiscardOrderEdit();
-				}
-			}
-		}
-	});
-});
-function idcDiscardOrderEdit() {
-	jQuery('#memberdeck-users td.order_item.order_edit a').show();
-	jQuery('#memberdeck-users td.order_item.order_edit .order_edit_field, #memberdeck-users td.order_item.order_edit a.order_edit_save, #memberdeck-users td.order_item.order_edit a.order_edit_undo').remove();
-}
-function idcCreateOrderEditObject(editItem) {
-	var updateArgs = {
-		id: jQuery(editItem).parent('tr').data('id'),
-		column: jQuery(editItem).data('column'),
-		value: jQuery(editItem).find('input.order_edit_field').val()
-	}
-	var editType = jQuery(editItem).data('type');
-	switch(editType) {
-		case 'float':
-			updateArgs.value = idfParseFloat(updateArgs.value);
-			break;
-		default:
-			break;
-	}
-	return updateArgs;
-}

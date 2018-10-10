@@ -23,18 +23,10 @@ class ID_Member_Order {
 		$price = '0'
 		)
 	{
-		if (empty($order_date)) {
-			$tz = get_option('timezone_string');
-			if (empty($tz)) {
-				$tz = 'UTC';
-			}
-			date_default_timezone_set($tz);
-			$order_date = date('Y-m-d H:i:s');
-		}
 		$this->id = $id;
 		$this->user_id = $user_id;
 		$this->level_id = $level_id;
-		$this->order_date = $order_date;
+		$this->order_date = date('Y-m-d H:i:s');
 		$this->transaction_id = $transaction_id;
 		$this->subscription_id = $subscription_id;
 		$this->status = $status;
@@ -68,9 +60,7 @@ class ID_Member_Order {
 		$res = $wpdb->query($sql);
 		$insert_id = $wpdb->insert_id;
 		// $wpdb->print_error();
-		if (!empty($insert_id)) {
-			do_action('idc_modify_order', $insert_id, 'add');
-			do_action('idc_order_add', $insert_id); // #devnote need to add order object
+		if (isset($insert_id)) {
 			$order = array('level_id' => $this->level_id,
 				'user_id' => $this->user_id);
 			if (!is_idc_free()) {
@@ -106,8 +96,6 @@ class ID_Member_Order {
 			$this->price, 
 			$this->id);
 		$res = $wpdb->query($sql);
-		do_action('idc_modify_order', $this->id, 'update');
-		do_action('idc_order_update', $this->id); // #devnote need to add order object
 	}
 
 	function delete_order() {
@@ -116,8 +104,7 @@ class ID_Member_Order {
 		$sql = 'DELETE FROM '.$wpdb->prefix.'memberdeck_orders WHERE id = '.$this->id;
 		$res = $wpdb->query($sql);
 		if ($res !== false) {
-			do_action('idc_modify_order', $this->id, 'delete');
-			do_action('idc_order_delete', $this->id); // #devnote need to add order object
+			do_action('idc_order_delete', $this->id);
 		}
 	}
 
@@ -146,7 +133,13 @@ class ID_Member_Order {
 		$exp_level = ID_Member_Level::get_level($this->level_id);
 		$level_type = $exp_level->level_type;
 		if ($level_type == 'standard') {
-			$e_date = self::set_standard_e_date($exp_level);
+			//if ($exp_level->level_price > 0) {
+				$exp = strtotime('+1 years');
+				$e_date = date('Y-m-d H:i:s', $exp);
+			//}
+			/*else {
+				$e_date = null;
+			}*/
 		}
 		else if ($level_type == 'recurring') {
 			$recurring_type = $exp_level->recurring_type;
@@ -192,12 +185,6 @@ class ID_Member_Order {
 		$res = $wpdb->query($sql);
 	}
 
-	public static function update_order_by_field($id, $column, $value) {
-		global $wpdb;
-		$update = $wpdb->update($wpdb->prefix.'memberdeck_orders', array($column => $value), array('ID' => $id));
-		return $update;
-	}
-
 	/**
 	 * get_order_currency_sym(): Function to get the currency symbol of a payment gateway of an order
 	 * No param is required
@@ -239,62 +226,21 @@ class ID_Member_Order {
 			// might not have been added to db yet
 			$currency_code = $global_currency;
 		}
-		return idc_currency_to_symbol($currency_code);
-	}
-
-	public static function set_e_date($level_data) {
-		if (empty($level_data)) {
-			return null;
-		}
-
-		if ($level_data->level_type == 'recurring') {
-			switch ($level_data->recurring_type) {
-				case 'weekly':
-					// weekly
-					$exp = strtotime('+1 week');
-					break;
-
-				case 'monthly':
-					// monthly
-					$exp = strtotime('+1 month');
-					break;
-				
-				default:
-					// annually
-					$exp = strtotime('+1 years');
-					break;
+		// Converting shortcode to symbol and return, but first getting the array for code to symbol from file
+		$currency_json = json_decode(file_get_contents(IDC_PATH . "templates/admin/currencies.json"));
+		$currencies_array = $currency_json->currency;
+		// since currency array is for paypal only, we add some additional
+		$btc = new stdClass();
+		$btc->code = 'BTC';
+		$btc->symbol = '&#3647;';
+		$currencies_array[] = $btc;
+		// now that we have the array, we loop through it and compare the code and return the required symbol if code is matched
+		foreach ($currencies_array as $currency) {
+			if ($currency->code == $currency_code) {
+				return $currency->symbol;
 			}
-			$e_date = date('Y-m-d h:i:s', $exp);
 		}
-		else if ($level_data->level_type == 'lifetime') {
-			$e_date = null;
-		}
-		else {
-			$e_date = idc_set_order_edate($level_data);
-		}
-		return $e_date;
-	}
-
-	public static function set_standard_e_date($level_data, $now = null) {
-		if (empty($now)) {
-			$now = strtotime('now');
-		}
-		$exp = strtotime('+1 years');
-		$exp_data = idc_get_level_meta($level_data->id, 'exp_data', true);
-		if (!empty($exp_data)) {
-			$exp = strtotime('+'.$exp_data['count'].' '.$exp_data['term'], $now);
-		}
-		$e_date = date('Y-m-d h:i:s', $exp);
-		return $e_date;
-	}
-
-	public static function set_trial_e_date($level_data, $now = null) {
-		if (empty($now)) {
-			$now = strtotime('now');
-		}
-		$exp = strtotime('+'.$level_data->trial_length.' '.$level_data->trial_type);
-		$e_date = date('Y-m-d h:i:s', $exp);
-		return $e_date;
+		return '$';
 	}
 
 	/**
@@ -308,23 +254,27 @@ class ID_Member_Order {
 	 * @param string|array      $single    Meta value, or an array of values.
 	 */
 	public static function get_order_meta($order_id, $meta_key, $single = true) {
-		if (empty($meta_key)) {
-			return;
+		if ( !$order_id = absint($order_id) )
+			return "";
+
+		global $wpdb;
+		$sql = $wpdb->prepare('SELECT * FROM '.$wpdb->prefix.'memberdeck_order_meta WHERE order_id = %s AND meta_key = %s', $order_id, $meta_key);
+		$res = $wpdb->get_row($sql);
+
+		if (empty($res))
+			return "";
+			
+		if ( isset($res->meta_key) ) {
+			if ( $single )
+				return maybe_unserialize($res->meta_value);
+			else
+				return array_map('maybe_unserialize', $res->meta_value);
 		}
-		$meta = idf_get_object('id_member_order-get_order_meta-'.$order_id.'-'.$meta_key.($single ? '-true' : '-false'));
-		if (empty($meta)) {
-			global $wpdb;
-			$sql = $wpdb->prepare('SELECT * FROM '.$wpdb->prefix.'memberdeck_order_meta WHERE order_id = %s AND meta_key = %s', $order_id, $meta_key);
-			$res = $wpdb->get_row($sql);
-			$meta = (!empty($res->meta_value) ? $res->meta_value : '');
-			$meta = apply_filters('idc_order_meta_'.$meta_key, $meta, $order_id);
-			if (empty($meta)) {
-				return;
-			}
-			$meta = ($single ? maybe_unserialize($meta) : array_map('maybe_unserialize', $meta));
-			idf_cache_object('id_member_order-get_order_meta-'.$order_id.'-'.$meta_key.($single ? '-true' : '-false'), $meta, 86400);
-		}
-		return $meta;
+
+		if ($single)
+			return '';
+		else
+			return array();
 	}
 
 	/**
@@ -354,23 +304,21 @@ class ID_Member_Order {
 			}
 		}
 
-		if ( ! $meta_id = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM '.$wpdb->prefix.'memberdeck_order_meta WHERE meta_key = %s AND order_id = %d', $meta_key, $order_id ) ) ) {
+		if ( ! $meta_id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM ".$wpdb->prefix."memberdeck_order_meta WHERE meta_key = %s AND order_id = %d", $meta_key, $order_id ) ) ) {
 			return self::add_metadata($order_id, $meta_key, $passed_value);
 		}
 
 		$meta_value = maybe_serialize( $meta_value );
 		$data  = compact( 'meta_value' );
-		$where = array( 'order_id' => $order_id, 'meta_key' => $meta_key );
+		$where = array( 'id' => $order_id, 'meta_key' => $meta_key );
 		if ( !empty( $prev_value ) ) {
 			$prev_value = maybe_serialize($prev_value);
 			$where['meta_value'] = $prev_value;
 		}
 
-		$result = $wpdb->update( $wpdb->prefix.'memberdeck_order_meta', $data, $where );
-		if (! $result )
+		$result = $wpdb->update( $wpdb->prefix."memberdeck_order_meta", $data, $where );
+		if ( ! $result )
 			return false;
-
-		// #devnote return true or value?
 	}
 
 	public static function add_metadata($order_id, $meta_key, $meta_value, $unique = false) {
@@ -420,13 +368,6 @@ class ID_Member_Order {
 		global $wpdb;
 		$sql = "DELETE FROM ".$wpdb->prefix."memberdeck_order_meta WHERE order_id= '".$order_id."'";
 		$wpdb->query($sql);
-	}
-
-	public static function get_order_id_by_paykey($paykey) {
-		global $wpdb;
-		$sql = $wpdb->prepare('SELECT order_id FROM '.$wpdb->prefix.'memberdeck_order_meta WHERE meta_key = %s AND meta_value = %s', 'paykey', $paykey);
-		$res = $wpdb->get_row($sql);
-		return $res;
 	}
 
 	public static function delete_preorder_tokens($order_id) {
@@ -593,27 +534,6 @@ class ID_Member_Order {
 		}
 
 		echo '<div id="message" class="updated idc-message order-deleted">'.__('Order was successfully deleted', 'memberdeck').'</div>';
-	}
-}
-
-function idc_get_order_meta($order_id, $meta_key, $single = true) {
-	return ID_Member_Order::get_order_meta($order_id, $meta_key, $single);
-}
-
-function idc_update_order_meta($order_id, $meta_key, $meta_value) {
-	return ID_Member_Order::update_order_meta($order_id, $meta_key, $meta_value);
-}
-
-function idc_set_order_edate($level_data, $now = null) {
-	switch ($level_data->level_type) {
-		case 'standard':
-			return ID_Member_Order::set_standard_e_date($level_data, $now);
-		
-		case 'recurring':
-			return ID_Member_Order::set_trial_e_date($level_data, $now);
-
-		default:
-			return;
 	}
 }
 ?>

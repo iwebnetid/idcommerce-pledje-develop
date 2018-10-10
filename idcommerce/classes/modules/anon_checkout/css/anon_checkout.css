@@ -1,10 +1,7 @@
 /* Anonymous Checkout Style */
 
-.memberdeck form #idc_checkout_extra_fields_anon .checklist {
-	/*margin-bottom: 0;*/
-}
-
-.memberdeck form #idc_checkout_extra_fields_anon hr {
-	height: 1px;
-	background: #e7ebed;
+.memberdeck form .center .checklist input[type=checkbox] {
+	position: relative;
+	top: 0;
+	left: 0;
 }

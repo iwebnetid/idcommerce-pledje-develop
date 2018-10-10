@@ -1,10 +1,17 @@
 <div class="memberdeck ignitiondeck">
 	<?php include_once IDC_PATH.'templates/_mdProfileTabs.php'; ?>
 	<ul class="md-box-wrapper full-width cf">
+	
+	
 	<?php echo (isset($error) ? '<p class="error">'.$error.'</p>' : ''); ?>
 	<?php echo (isset($success) ? '<p class="success">'.$success.'</p>' : ''); ?>
+	
+	
+		
+		
 	<form action="?edit-profile=<?php echo (isset($current_user->ID) ? $current_user->ID : ''); ?>&amp;edited=1" method="POST" id="edit-profile" name="edit-profile" enctype="multipart/form-data">
 		<li class="md-box">
+		
 			<div class="md-profile">
 				<div id="logged-input" class="no">
 					<p><h2 class="border-bottom"><?php _e('Profile Information', 'memberdeck'); ?></h2></p>
@@ -44,10 +51,10 @@
 						<input type="location" size="20" class="location" name="location" value="<?php echo (isset($location) ? $location : ''); ?>"/>
 					</div>
                     
-					<div class="form-row half">
+					<!-- <div class="form-row half">
 						<label for="url"><?php _e('Website URL <span class="starred">*</span>', 'memberdeck'); ?></label>
 						<input type="url" size="20" class="url" name="url" value="<?php echo (isset($url) ? $url : ''); ?>"/>
-					</div>
+					</div> -->
 				
 					<div class="form-row third left">
 						<label for="twitter"><?php _e('Twitter URL', 'memberdeck'); ?></label>
@@ -76,7 +83,8 @@
 					</div>
 					
 					<?php echo do_action('md_profile_extrafields'); ?>
-					<?php if (!is_idc_free()) { ?>
+					<?php
+					/* if (!is_idc_free()) { ?>
 					<h2 id="instantcheckout" class="border-bottom"><?php _e('Payment Settings', 'memberdeck'); ?></h2>
 					<?php if ($show_subscriptions) { ?>
 					<strong><?php _e('Subscriptions', 'memberdeck'); ?></strong>
@@ -101,8 +109,8 @@
 						&nbsp;<button name="cancel_sub" class="hidden invert inline" disabled><?php _e('Cancel Subscription', 'memberdeck'); ?></button>
 					</div>
 					<?php } ?>
-					<h2><?php _e('Instant Checkout', 'memberdeck'); ?></h2>
-					<p class="desc-note">	<?php _e('With instant checkout enabled, you can pay with your credit card without re-entering information. To enable, simply use your credit card to checkout once, and then select \'enable instant checkout\' from this screen, and click \'Update Profile\' below.', 'memberdeck'); ?><br><br>
+					<strong><?php _e('Instant Checkout', 'memberdeck'); ?></strong>
+					<p class="desc-note">	<?php _e('With instant checkout enabled, you can pay with your credit card without re-entering information. To enable, simply use your credit card to checkout once, and then select &lsquo;enable instant checkout&rsquo; from this screen, and click \'Update Profile\' below.', 'memberdeck'); ?><br><br>
 						<?php _e('Your credit card information is never stored on our servers, and is always processed securely.', 'memberdeck'); ?>
 					</p>
 					<?php if (!empty($show_icc)) { ?>
@@ -113,7 +121,9 @@
 					</p>
 				<?php do_action('md_profile_extrasettings'); ?>
 				<?php } ?>
-				<?php } ?>
+				<?php } 
+				*/
+				?>
                 <div class="border-bottom"></div>
 					<button type="submit" id="edit-profile-submit" class="submit-button" name="edit-profile-submit"><?php _e('Update Profile', 'memberdeck'); ?></button>
 				</div>
